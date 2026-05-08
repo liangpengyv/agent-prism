@@ -1,7 +1,7 @@
 [package]
-name = "agent-prism"
+name = "AgentPrism"
 version = "0.1.0"
-description = "A Tauri App"
+description = "AgentPrism - Local AI Agent Token Monitor"
 authors = ["you"]
 edition = "2021"
 
