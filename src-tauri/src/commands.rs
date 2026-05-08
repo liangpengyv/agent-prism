@@ -75,7 +75,7 @@ pub fn get_summary() -> CommandResult<SummaryData> {
         warnings.push(w.clone());
     }
 
-    let matrix = BillingMatrix::new();
+    let matrix = load_matrix();
     let cost = matrix.estimate(&sessions);
 
     let top_project = {
@@ -153,18 +153,21 @@ pub fn get_by_project() -> CommandResult<Vec<ProjectStat>> {
         *token_map.entry(key).or_insert(0) += t.tokens_used;
     }
 
-    // 按项目聚合费用（从 sessions 中提取 model_provider，按 cwd 分组）
-    let mut cost_map: HashMap<String, f64> = Default::default();
-    for s in &sessions {
-        let key = s.cwd.split('/').last().unwrap_or(&s.cwd).to_string();
-        let cost = matrix.estimate(std::slice::from_ref(s)).total_usd;
-        *cost_map.entry(key).or_insert(0.0) += cost;
-    }
+    // 计算全局单价（总费用 / 总 token）
+    let total_cost: f64 = sessions.iter()
+        .map(|s| matrix.estimate(std::slice::from_ref(s)).total_usd)
+        .sum();
+    let total_tokens: i64 = threads.iter().map(|t| t.tokens_used).sum();
+    let global_per_token = if total_tokens > 0 {
+        total_cost / total_tokens as f64
+    } else {
+        matrix.fallback_avg_per_token()
+    };
 
     let mut stats: Vec<ProjectStat> = token_map
         .into_iter()
         .map(|(project, tokens)| ProjectStat {
-            cost_usd: *cost_map.get(&project).unwrap_or(&0.0),
+            cost_usd: tokens as f64 * global_per_token,
             project,
             tokens,
         })
