@@ -1,11 +1,22 @@
 // src-tauri/src/commands.rs
 
-use crate::billing::BillingMatrix;
+use crate::billing::{BillingMatrix, ModelPrice};
 use crate::data_source::codex::reconciler::ReconcileResult;
 use crate::data_source::codex::reconciler::reconcile;
 use crate::data_source::codex::CodexSource;
 use crate::data_source::{AgentSource, CommandResult, ThreadRecord};
 use serde::Serialize;
+use std::collections::HashMap;
+
+fn load_matrix() -> BillingMatrix {
+    use crate::store::AppStore;
+    if let Ok(store) = AppStore::new() {
+        if let Ok(Some(prices)) = store.get_prices() {
+            return BillingMatrix::with_prices(prices);
+        }
+    }
+    BillingMatrix::new()
+}
 
 #[derive(Serialize, Clone)]
 pub struct ProjectStat {
@@ -122,24 +133,38 @@ pub fn get_by_project() -> CommandResult<Vec<ProjectStat>> {
         None => return CommandResult::err("未检测到 ~/.codex 目录"),
     };
 
-    let (threads, warnings) = match source.threads() {
+    let (threads, mut warnings) = match source.threads() {
         Ok(r) => r,
         Err(e) => return CommandResult::err(format!("读取 threads 失败: {e}")),
     };
 
-    let mut map: std::collections::HashMap<String, i64> = Default::default();
+    let (sessions, mut s_warns) = match source.sessions() {
+        Ok(r) => r,
+        Err(e) => return CommandResult::err(format!("读取 sessions 失败: {e}")),
+    };
+    warnings.append(&mut s_warns);
+
+    let matrix = load_matrix();
+
+    // 按项目聚合 token
+    let mut token_map: HashMap<String, i64> = Default::default();
     for t in &threads {
         let key = t.cwd.split('/').last().unwrap_or(&t.cwd).to_string();
-        *map.entry(key).or_insert(0) += t.tokens_used;
+        *token_map.entry(key).or_insert(0) += t.tokens_used;
     }
 
-    // 用 codex-mini 输入输出均价估算
-    let avg_price = (1.5_f64 + 6.0_f64) / 2.0 / 1_000_000.0;
+    // 按项目聚合费用（从 sessions 中提取 model_provider，按 cwd 分组）
+    let mut cost_map: HashMap<String, f64> = Default::default();
+    for s in &sessions {
+        let key = s.cwd.split('/').last().unwrap_or(&s.cwd).to_string();
+        let cost = matrix.estimate(std::slice::from_ref(s)).total_usd;
+        *cost_map.entry(key).or_insert(0.0) += cost;
+    }
 
-    let mut stats: Vec<ProjectStat> = map
+    let mut stats: Vec<ProjectStat> = token_map
         .into_iter()
         .map(|(project, tokens)| ProjectStat {
-            cost_usd: tokens as f64 * avg_price,
+            cost_usd: *cost_map.get(&project).unwrap_or(&0.0),
             project,
             tokens,
         })
@@ -161,10 +186,10 @@ pub fn get_by_model() -> CommandResult<Vec<ModelStat>> {
         Err(e) => return CommandResult::err(format!("读取 sessions 失败: {e}")),
     };
 
-    let matrix = BillingMatrix::new();
+    let matrix = load_matrix();
 
-    let mut token_map: std::collections::HashMap<String, i64> = Default::default();
-    let mut cost_map: std::collections::HashMap<String, f64> = Default::default();
+    let mut token_map: HashMap<String, i64> = Default::default();
+    let mut cost_map: HashMap<String, f64> = Default::default();
 
     for s in &sessions {
         *token_map.entry(s.model_provider.clone()).or_insert(0) += s.total_tokens;
@@ -194,32 +219,56 @@ pub fn get_by_date() -> CommandResult<Vec<DayStat>> {
         None => return CommandResult::err("未检测到 ~/.codex 目录"),
     };
 
-    let (threads, warnings) = match source.threads() {
+    let (threads, mut warnings) = match source.threads() {
         Ok(r) => r,
         Err(e) => return CommandResult::err(format!("读取 threads 失败: {e}")),
     };
 
-    let cutoff = Utc::now() - Duration::days(30);
-    let avg_price = (1.5_f64 + 6.0_f64) / 2.0 / 1_000_000.0;
+    let (sessions, mut s_warns) = match source.sessions() {
+        Ok(r) => r,
+        Err(e) => return CommandResult::err(format!("读取 sessions 失败: {e}")),
+    };
+    warnings.append(&mut s_warns);
 
-    let mut map: std::collections::BTreeMap<String, i64> = Default::default();
+    let matrix = load_matrix();
+    let cutoff = Utc::now() - Duration::days(30);
+
+    // token 按日期聚合
+    let mut token_map: std::collections::BTreeMap<String, i64> = Default::default();
     for t in &threads {
-        if t.updated_at < cutoff {
-            continue;
-        }
+        if t.updated_at < cutoff { continue; }
         let date = format!(
             "{:04}-{:02}-{:02}",
-            t.updated_at.year(),
-            t.updated_at.month(),
-            t.updated_at.day()
+            t.updated_at.year(), t.updated_at.month(), t.updated_at.day()
         );
-        *map.entry(date).or_insert(0) += t.tokens_used;
+        *token_map.entry(date).or_insert(0) += t.tokens_used;
     }
 
-    let stats: Vec<DayStat> = map
+    // 费用按日期聚合（从 sessions 中按 updated_at 分组）
+    let mut cost_map: std::collections::BTreeMap<String, f64> = Default::default();
+    for s in &sessions {
+        // SessionRecord 无 updated_at，无法直接按日聚合
+        // 用 threads 中对应 token 比例估算，这里简化：按 session 贡献的 cost 均摊到 token_map 的日期
+        let cost = matrix.estimate(std::slice::from_ref(s)).total_usd;
+        let _ = (cost, &cost_map); // 占位，下方统一用 token_map 驱动
+    }
+
+    // 用 token_map 驱动，费用 = BillingMatrix.fallback 均价 × token（因为日粒度无法追踪模型）
+    // 同时通过 sessions 总费用 / threads 总 token 算出全局单价，按日乘以 token 数
+    let total_session_cost: f64 = sessions.iter()
+        .map(|s| matrix.estimate(std::slice::from_ref(s)).total_usd)
+        .sum();
+    let total_thread_tokens: i64 = threads.iter().map(|t| t.tokens_used).sum();
+    let global_per_token = if total_thread_tokens > 0 {
+        total_session_cost / total_thread_tokens as f64
+    } else {
+        matrix.fallback_avg_per_token()
+    };
+
+    let stats: Vec<DayStat> = token_map
         .into_iter()
         .map(|(date, tokens)| DayStat {
-            cost_usd: tokens as f64 * avg_price,
+            cost_usd: tokens as f64 * global_per_token,
             date,
             tokens,
         })
@@ -247,6 +296,31 @@ pub fn set_budget(tokens: i64) -> CommandResult<String> {
         Ok(store) => match store.set_budget_tokens(tokens) {
             Ok(_) => CommandResult::ok("预算已保存".to_string()),
             Err(e) => CommandResult::err(format!("保存预算失败: {e}")),
+        },
+        Err(e) => CommandResult::err(format!("初始化 store 失败: {e}")),
+    }
+}
+
+#[tauri::command]
+pub fn get_prices() -> CommandResult<HashMap<String, ModelPrice>> {
+    use crate::store::AppStore;
+    match AppStore::new() {
+        Ok(store) => match store.get_prices() {
+            Ok(Some(prices)) => CommandResult::ok(prices),
+            Ok(None) => CommandResult::ok(BillingMatrix::default_prices()),
+            Err(e) => CommandResult::err(format!("读取价格表失败: {e}")),
+        },
+        Err(e) => CommandResult::err(format!("初始化 store 失败: {e}")),
+    }
+}
+
+#[tauri::command]
+pub fn set_prices(prices: HashMap<String, ModelPrice>) -> CommandResult<String> {
+    use crate::store::AppStore;
+    match AppStore::new() {
+        Ok(store) => match store.set_prices(&prices) {
+            Ok(_) => CommandResult::ok("价格表已保存".to_string()),
+            Err(e) => CommandResult::err(format!("保存价格表失败: {e}")),
         },
         Err(e) => CommandResult::err(format!("初始化 store 失败: {e}")),
     }

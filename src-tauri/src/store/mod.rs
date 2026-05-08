@@ -1,6 +1,8 @@
 use anyhow::Result;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
+use std::collections::HashMap;
+use crate::billing::ModelPrice;
 
 pub struct AppStore {
     pub db_path: PathBuf,
@@ -71,6 +73,32 @@ impl AppStore {
         );
         match result {
             Ok(s) => Ok(s.parse().ok()),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// 将自定义价格表序列化为 JSON 存入 meta 表
+    pub fn set_prices(&self, prices: &HashMap<String, ModelPrice>) -> Result<()> {
+        let json = serde_json::to_string(prices)?;
+        let conn = Connection::open(&self.db_path)?;
+        conn.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES ('custom_prices', ?1)",
+            params![json],
+        )?;
+        Ok(())
+    }
+
+    /// 读取自定义价格表，不存在则返回 None（由调用方决定是否回退到默认）
+    pub fn get_prices(&self) -> Result<Option<HashMap<String, ModelPrice>>> {
+        let conn = Connection::open(&self.db_path)?;
+        let result: rusqlite::Result<String> = conn.query_row(
+            "SELECT value FROM meta WHERE key = 'custom_prices'",
+            [],
+            |row| row.get(0),
+        );
+        match result {
+            Ok(s) => Ok(serde_json::from_str(&s).ok()),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e.into()),
         }
