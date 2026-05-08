@@ -20,12 +20,12 @@ onUnmounted(() => {
 function handleKeydown(e: KeyboardEvent) {
   if (e.metaKey && e.key === 'w') {
     e.preventDefault()
-    getCurrentWindow().hide()
+    getCurrentWindow().hide().catch(console.error)
   }
 }
 
 function closeWindow() {
-  getCurrentWindow().hide()
+  getCurrentWindow().hide().catch(console.error)
 }
 
 function formatTokens(n: number): string {
@@ -38,7 +38,7 @@ function formatTokens(n: number): string {
 <template>
   <div class="dashboard">
     <header class="header">
-      <button class="close-btn" @click="closeWindow" title="关闭">
+      <button class="close-btn" @mousedown.stop @click.stop="closeWindow" title="关闭">
         <span class="close-dot"></span>
       </button>
       <span class="logo">AgentPrism</span>
@@ -105,6 +105,7 @@ function formatTokens(n: number): string {
 }
 .close-btn {
   -webkit-app-region: no-drag;
+  pointer-events: all;
   width: 13px;
   height: 13px;
   border-radius: 50%;

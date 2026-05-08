@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "agent-prism",
+  "productName": "AgentPrism",
   "version": "0.1.0",
   "identifier": "ink.laoliang.agent-prism",
   "build": {
@@ -27,7 +27,8 @@
     ],
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,
