@@ -1,7 +1,7 @@
 <!-- src/views/Dashboard.vue -->
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-import { getCurrentWindow } from '@tauri-apps/api/window'
+import { invoke } from '@tauri-apps/api/core'
 import { useStats } from '../composables/useStats'
 import ThreadList from '../components/ThreadList.vue'
 
@@ -20,12 +20,12 @@ onUnmounted(() => {
 function handleKeydown(e: KeyboardEvent) {
   if (e.metaKey && e.key === 'w') {
     e.preventDefault()
-    getCurrentWindow().hide().catch(console.error)
+    invoke('hide_window').catch(console.error)
   }
 }
 
 function closeWindow() {
-  getCurrentWindow().hide().catch(console.error)
+  invoke('hide_window').catch(console.error)
 }
 
 function formatTokens(n: number): string {

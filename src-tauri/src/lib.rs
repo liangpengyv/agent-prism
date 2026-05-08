@@ -3,7 +3,7 @@ mod commands;
 mod data_source;
 mod store;
 
-use commands::{get_summary, get_threads, refresh};
+use commands::{get_summary, get_threads, refresh, hide_window};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -54,7 +54,7 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_summary, get_threads, refresh])
+        .invoke_handler(tauri::generate_handler![get_summary, get_threads, refresh, hide_window])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
