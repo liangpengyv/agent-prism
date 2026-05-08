@@ -93,18 +93,21 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
 
         match msg_type {
             "session_meta" => {
-                if let Some(id) = v.get("id").and_then(|s| s.as_str()) {
-                    session_id = id.to_string();
-                }
-                if let Some(c) = v.get("cwd").and_then(|s| s.as_str()) {
-                    cwd = c.to_string();
-                }
-                // 尝试多个可能的字段名
-                if let Some(mp) = v.get("model_provider").and_then(|s| s.as_str())
-                    .or_else(|| v.get("model").and_then(|s| s.as_str()))
-                    .or_else(|| v.get("provider").and_then(|s| s.as_str()))
-                {
-                    model_provider = mp.to_string();
+                // session_meta 的字段在 payload 子对象里
+                if let Some(payload) = v.get("payload") {
+                    if let Some(id) = payload.get("id").and_then(|s| s.as_str()) {
+                        session_id = id.to_string();
+                    }
+                    if let Some(c) = payload.get("cwd").and_then(|s| s.as_str()) {
+                        cwd = c.to_string();
+                    }
+                    // 尝试多个可能的字段名
+                    if let Some(mp) = payload.get("model_provider").and_then(|s| s.as_str())
+                        .or_else(|| payload.get("model").and_then(|s| s.as_str()))
+                        .or_else(|| payload.get("provider").and_then(|s| s.as_str()))
+                    {
+                        model_provider = mp.to_string();
+                    }
                 }
             }
             "event_msg" => {
@@ -168,7 +171,7 @@ mod tests {
     fn test_takes_last_token_count() {
         let dir = TempDir::new().unwrap();
         make_session_file(&dir, "s1.jsonl", r#"
-{"type":"session_meta","id":"s1","timestamp":1714000000,"cwd":"/proj","model_provider":"openai"}
+{"type":"session_meta","timestamp":"2026-01-01T00:00:00Z","payload":{"id":"s1","cwd":"/proj","model_provider":"openai"}}
 {"type":"event_msg","payload":{"type":"token_count","input_tokens":100,"cached_input_tokens":20,"output_tokens":50,"reasoning_output_tokens":0,"total_tokens":150}}
 {"type":"event_msg","payload":{"type":"token_count","input_tokens":200,"cached_input_tokens":40,"output_tokens":80,"reasoning_output_tokens":10,"total_tokens":280}}
 "#);
@@ -183,7 +186,7 @@ mod tests {
     fn test_skips_invalid_lines() {
         let dir = TempDir::new().unwrap();
         make_session_file(&dir, "s2.jsonl", r#"
-{"type":"session_meta","id":"s2","timestamp":1714000000,"cwd":"/proj","model_provider":"openai"}
+{"type":"session_meta","timestamp":"2026-01-01T00:00:00Z","payload":{"id":"s2","cwd":"/proj","model_provider":"openai"}}
 not valid json
 {"type":"event_msg","payload":{"type":"token_count","input_tokens":100,"cached_input_tokens":0,"output_tokens":50,"reasoning_output_tokens":0,"total_tokens":150}}
 "#);
@@ -196,7 +199,7 @@ not valid json
     fn test_no_token_count_returns_none() {
         let dir = TempDir::new().unwrap();
         make_session_file(&dir, "s3.jsonl", r#"
-{"type":"session_meta","id":"s3","timestamp":1714000000,"cwd":"/proj","model_provider":"openai"}
+{"type":"session_meta","timestamp":"2026-01-01T00:00:00Z","payload":{"id":"s3","cwd":"/proj","model_provider":"openai"}}
 {"type":"event_msg","payload":{"type":"other_event"}}
 "#);
         let (sessions, _) = read_sessions(dir.path()).unwrap();
