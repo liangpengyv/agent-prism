@@ -1,10 +1,15 @@
 <!-- src/App.vue -->
 <script setup lang="ts">
+import { ref } from 'vue'
 import Dashboard from './views/Dashboard.vue'
+import Settings from './views/Settings.vue'
+
+const page = ref<'dashboard' | 'settings'>('dashboard')
 </script>
 
 <template>
-  <Dashboard />
+  <Dashboard v-if="page === 'dashboard'" @openSettings="page = 'settings'" />
+  <Settings v-else @back="page = 'dashboard'" />
 </template>
 
 <style>
