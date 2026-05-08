@@ -1,6 +1,7 @@
 // src/composables/useStats.ts
 import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 
 export interface ReconcileResult {
   sqlite_total: number
@@ -86,4 +87,10 @@ export function useStats() {
   }
 
   return { summary, threads, warnings, error, loading, loadSummary, loadThreads, refresh }
+}
+
+export function useDataUpdatedListener(callback: () => void): () => void {
+  let unlisten: (() => void) | null = null
+  listen('data-updated', () => callback()).then(fn => { unlisten = fn })
+  return () => { if (unlisten) unlisten() }
 }
