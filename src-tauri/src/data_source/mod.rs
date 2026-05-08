@@ -53,6 +53,7 @@ impl<T: Serialize> CommandResult<T> {
 }
 
 pub trait AgentSource {
+    #[allow(dead_code)]
     fn name(&self) -> &str;
     fn discover(&self) -> anyhow::Result<Vec<PathBuf>>;
     fn threads(&self) -> anyhow::Result<(Vec<ThreadRecord>, Vec<String>)>;

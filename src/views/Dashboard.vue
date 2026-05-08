@@ -1,6 +1,7 @@
 <!-- src/views/Dashboard.vue -->
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useStats } from '../composables/useStats'
 import ThreadList from '../components/ThreadList.vue'
 
@@ -9,7 +10,23 @@ const { summary, threads, warnings, error, loading, loadSummary, loadThreads, re
 onMounted(async () => {
   await loadSummary()
   await loadThreads()
+  window.addEventListener('keydown', handleKeydown)
 })
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.metaKey && e.key === 'w') {
+    e.preventDefault()
+    getCurrentWindow().hide()
+  }
+}
+
+function closeWindow() {
+  getCurrentWindow().hide()
+}
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
@@ -21,6 +38,9 @@ function formatTokens(n: number): string {
 <template>
   <div class="dashboard">
     <header class="header">
+      <button class="close-btn" @click="closeWindow" title="关闭">
+        <span class="close-dot"></span>
+      </button>
       <span class="logo">AgentPrism</span>
       <button class="refresh-btn" @click="refresh" :disabled="loading">
         {{ loading ? '刷新中…' : '刷新' }}
@@ -57,7 +77,9 @@ function formatTokens(n: number): string {
       </div>
 
       <div class="section-title">线程列表</div>
-      <ThreadList :threads="threads" />
+      <div class="list-container">
+        <ThreadList :threads="threads" />
+      </div>
 
       <div class="estimate-footer">估算，非真实账单</div>
     </template>
@@ -81,6 +103,23 @@ function formatTokens(n: number): string {
   border-bottom: 1px solid rgba(255,255,255,0.06);
   -webkit-app-region: drag;
 }
+.close-btn {
+  -webkit-app-region: no-drag;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #ff5f57;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+.close-btn:hover { background: #e0443e; }
+.close-dot { display: none; }
 .logo { font-size: 14px; font-weight: 500; letter-spacing: 0.08em; color: #fff; }
 .refresh-btn {
   -webkit-app-region: no-drag;
@@ -109,6 +148,7 @@ function formatTokens(n: number): string {
 .warnings { padding: 8px 20px; display: flex; flex-direction: column; gap: 2px; }
 .warning-item { font-size: 11px; color: #FFB74D; }
 .section-title { padding: 10px 20px 4px; font-size: 11px; color: #444; text-transform: uppercase; letter-spacing: 0.06em; }
+.list-container { flex: 1; overflow: hidden; }
 .estimate-footer { padding: 8px 20px; font-size: 10px; color: #444; border-top: 1px solid rgba(255,255,255,0.04); }
 .error-state { padding: 40px 20px; text-align: center; color: #666; }
 </style>

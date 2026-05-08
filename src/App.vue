@@ -14,4 +14,10 @@ html, body {
   height: 100%;
   overflow: hidden;
 }
+#app {
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(20, 20, 22, 0.82);
+}
 </style>

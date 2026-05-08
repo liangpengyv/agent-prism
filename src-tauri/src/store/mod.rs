@@ -38,6 +38,7 @@ impl AppStore {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn get_last_refresh(&self) -> Result<Option<i64>> {
         let conn = Connection::open(&self.db_path)?;
         let result: rusqlite::Result<String> = conn.query_row(
