@@ -3,11 +3,11 @@ mod commands;
 mod data_source;
 mod store;
 
-use commands::{get_summary, get_threads, refresh};
+use commands::{get_summary, get_threads, refresh, get_by_project, get_by_model, get_by_date, get_budget, set_budget};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    ActivationPolicy, Manager, RunEvent,
+    ActivationPolicy, Emitter, Manager, RunEvent,
 };
 
 fn show_main_window(app: &tauri::AppHandle) {
@@ -36,6 +36,15 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "退出 AgentPrism", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "打开看板", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
+
+            // 后台定时轮询：每 30s 推送 data-updated 事件
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(std::time::Duration::from_secs(30));
+                    let _ = app_handle.emit("data-updated", ());
+                }
+            });
 
             // 拦截关闭事件，改为 hide + 切换 Dock 策略
             if let Some(window) = app.get_webview_window("main") {
@@ -79,7 +88,11 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_summary, get_threads, refresh])
+        .invoke_handler(tauri::generate_handler![
+            get_summary, get_threads, refresh,
+            get_by_project, get_by_model, get_by_date,
+            get_budget, set_budget
+        ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {

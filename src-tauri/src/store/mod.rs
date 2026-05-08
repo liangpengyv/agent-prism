@@ -52,4 +52,27 @@ impl AppStore {
             Err(e) => Err(e.into()),
         }
     }
+
+    pub fn set_budget_tokens(&self, tokens: i64) -> Result<()> {
+        let conn = Connection::open(&self.db_path)?;
+        conn.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES ('budget_tokens', ?1)",
+            params![tokens.to_string()],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_budget_tokens(&self) -> Result<Option<i64>> {
+        let conn = Connection::open(&self.db_path)?;
+        let result: rusqlite::Result<String> = conn.query_row(
+            "SELECT value FROM meta WHERE key = 'budget_tokens'",
+            [],
+            |row| row.get(0),
+        );
+        match result {
+            Ok(s) => Ok(s.parse().ok()),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
