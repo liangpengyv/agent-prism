@@ -1,6 +1,6 @@
 <!-- src/views/Dashboard.vue -->
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useStats } from '../composables/useStats'
 import ThreadList from '../components/ThreadList.vue'
@@ -10,19 +10,7 @@ const { summary, threads, warnings, error, loading, loadSummary, loadThreads, re
 onMounted(async () => {
   await loadSummary()
   await loadThreads()
-  window.addEventListener('keydown', handleKeydown)
 })
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown)
-})
-
-function handleKeydown(e: KeyboardEvent) {
-  if (e.metaKey && e.key === 'w') {
-    e.preventDefault()
-    invoke('hide_window').catch(console.error)
-  }
-}
 
 function closeWindow() {
   invoke('hide_window').catch(console.error)
