@@ -83,11 +83,12 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
                 eprintln!("  session_meta full: {}", &line[..line.len().min(300)]);
             }
             if v.pointer("/payload/type").and_then(|t| t.as_str()) == Some("token_count") {
-                eprintln!("  token_count payload keys={:?}",
-                    v.pointer("/payload").and_then(|p| p.as_object())
+                eprintln!("  token_count payload.info keys={:?}",
+                    v.pointer("/payload/info").and_then(|p| p.as_object())
                         .map(|m| m.keys().cloned().collect::<Vec<_>>()).unwrap_or_default()
                 );
-                eprintln!("  token_count payload: {}", v.get("payload").map(|p| p.to_string()).unwrap_or_default());
+                eprintln!("  token_count payload.info.total_token_usage: {}",
+                    v.pointer("/payload/info/total_token_usage").map(|p| p.to_string()).unwrap_or_default());
             }
         }
 
@@ -112,7 +113,10 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
             }
             "event_msg" => {
                 if v.pointer("/payload/type").and_then(|t| t.as_str()) == Some("token_count") {
-                    last_token_count = v.get("payload").cloned();
+                    // token 数据在 payload.info.total_token_usage 里
+                    if let Some(usage) = v.pointer("/payload/info/total_token_usage") {
+                        last_token_count = Some(usage.clone());
+                    }
                 }
             }
             _ => {}
@@ -172,8 +176,8 @@ mod tests {
         let dir = TempDir::new().unwrap();
         make_session_file(&dir, "s1.jsonl", r#"
 {"type":"session_meta","timestamp":"2026-01-01T00:00:00Z","payload":{"id":"s1","cwd":"/proj","model_provider":"openai"}}
-{"type":"event_msg","payload":{"type":"token_count","input_tokens":100,"cached_input_tokens":20,"output_tokens":50,"reasoning_output_tokens":0,"total_tokens":150}}
-{"type":"event_msg","payload":{"type":"token_count","input_tokens":200,"cached_input_tokens":40,"output_tokens":80,"reasoning_output_tokens":10,"total_tokens":280}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":20,"output_tokens":50,"reasoning_output_tokens":0,"total_tokens":150}}}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":200,"cached_input_tokens":40,"output_tokens":80,"reasoning_output_tokens":10,"total_tokens":280}}}}
 "#);
         let (sessions, warnings) = read_sessions(dir.path()).unwrap();
         assert_eq!(sessions.len(), 1);
@@ -188,7 +192,7 @@ mod tests {
         make_session_file(&dir, "s2.jsonl", r#"
 {"type":"session_meta","timestamp":"2026-01-01T00:00:00Z","payload":{"id":"s2","cwd":"/proj","model_provider":"openai"}}
 not valid json
-{"type":"event_msg","payload":{"type":"token_count","input_tokens":100,"cached_input_tokens":0,"output_tokens":50,"reasoning_output_tokens":0,"total_tokens":150}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":0,"output_tokens":50,"reasoning_output_tokens":0,"total_tokens":150}}}}
 "#);
         let (sessions, warnings) = read_sessions(dir.path()).unwrap();
         assert_eq!(sessions.len(), 1);
