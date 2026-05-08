@@ -7,12 +7,12 @@ use commands::{get_summary, get_threads, refresh};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    ActivationPolicy, Manager, RunEvent,
+    Manager, RunEvent,
 };
 
 fn show_main_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
-        let _ = app.set_activation_policy(ActivationPolicy::Regular);
+        let _ = app.set_dock_visibility(true);
         let _ = window.show();
         let _ = window.set_focus();
     }
@@ -21,7 +21,7 @@ fn show_main_window(app: &tauri::AppHandle) {
 fn hide_main_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
-        let _ = app.set_activation_policy(ActivationPolicy::Accessory);
+        let _ = app.set_dock_visibility(false);
     }
 }
 
@@ -30,14 +30,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            // 启动时无可见窗口，切为 Accessory（Dock 图标隐藏）
-            let _ = app.set_activation_policy(ActivationPolicy::Accessory);
+            // 启动时窗口隐藏，Dock 图标也隐藏
+            let _ = app.set_dock_visibility(false);
 
             let quit = MenuItem::with_id(app, "quit", "退出 AgentPrism", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "打开看板", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
 
-            // 拦截关闭事件，改为 hide + 切换 Dock 策略
+            // 拦截关闭事件，改为 hide
             if let Some(window) = app.get_webview_window("main") {
                 let app_handle = app.handle().clone();
                 let win = window.clone();
@@ -45,7 +45,7 @@ pub fn run() {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         api.prevent_close();
                         let _ = win.hide();
-                        let _ = app_handle.set_activation_policy(ActivationPolicy::Accessory);
+                        let _ = app_handle.set_dock_visibility(false);
                     }
                 });
             }
