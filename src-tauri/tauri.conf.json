@@ -16,19 +16,12 @@
         "title": "AgentPrism",
         "width": 900,
         "height": 620,
-        "decorations": false,
-        "transparent": true,
-        "windowEffects": {
-          "effects": ["underWindowBackground"],
-          "state": "active"
-        },
         "visible": false
       }
     ],
     "security": {
       "csp": null
-    },
-    "macOSPrivateApi": true
+    }
   },
   "bundle": {
     "active": true,

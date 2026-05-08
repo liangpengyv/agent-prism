@@ -3,7 +3,7 @@ mod commands;
 mod data_source;
 mod store;
 
-use commands::{get_summary, get_threads, refresh, hide_window};
+use commands::{get_summary, get_threads, refresh};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -18,17 +18,6 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "退出 AgentPrism", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "打开看板", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
-
-            // Cmd+W / 点关闭按钮触发 CloseRequested → 改为 hide
-            if let Some(window) = app.get_webview_window("main") {
-                let win = window.clone();
-                window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        api.prevent_close();
-                        let _ = win.hide();
-                    }
-                });
-            }
 
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -65,7 +54,7 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_summary, get_threads, refresh, hide_window])
+        .invoke_handler(tauri::generate_handler![get_summary, get_threads, refresh])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {

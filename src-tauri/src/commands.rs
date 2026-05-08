@@ -6,14 +6,6 @@ use crate::data_source::codex::reconciler::reconcile;
 use crate::data_source::codex::CodexSource;
 use crate::data_source::{AgentSource, CommandResult, ThreadRecord};
 use serde::Serialize;
-use tauri::{AppHandle, Manager};
-
-#[tauri::command]
-pub fn hide_window(app: AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.hide();
-    }
-}
 
 #[derive(Serialize)]
 pub struct SummaryData {
