@@ -160,7 +160,8 @@ mod tests {
         let matrix = BillingMatrix::new();
         let sessions = vec![make_session("unknown-model-xyz", 1_000_000, 0, 1_000_000)];
         let estimate = matrix.estimate(&sessions);
-        assert_eq!(estimate.total_usd, 0.0);
+        // 未知模型现在用 fallback 均价估算，不再是 0
+        assert!(estimate.total_usd > 0.0);
     }
 
     #[test]
