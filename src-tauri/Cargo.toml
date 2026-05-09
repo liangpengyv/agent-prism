@@ -1,6 +1,6 @@
 [package]
 name = "AgentPrism"
-version = "0.1.2-alpha"
+version = "0.1.3-alpha"
 description = "AgentPrism - Local AI Agent Token Monitor"
 authors = ["you"]
 edition = "2021"
