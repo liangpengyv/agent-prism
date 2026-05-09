@@ -114,15 +114,6 @@ impl BillingMatrix {
         CostEstimate { total_usd, breakdown, is_estimate: true }
     }
 
-    /// 按 token 数直接估算（用于无 SessionRecord 的场合，如按项目/日期聚合）
-    pub fn estimate_by_tokens(&self, model_provider: &str, total_tokens: i64) -> f64 {
-        let price_per_token = if let Some(p) = self.prices.get(model_provider) {
-            p.avg_per_token()
-        } else {
-            self.fallback_avg_per_token()
-        };
-        total_tokens as f64 * price_per_token
-    }
 }
 
 #[cfg(test)]

@@ -248,7 +248,7 @@ pub fn get_by_date() -> CommandResult<Vec<DayStat>> {
     }
 
     // 费用按日期聚合（从 sessions 中按 updated_at 分组）
-    let mut cost_map: std::collections::BTreeMap<String, f64> = Default::default();
+    let cost_map: std::collections::BTreeMap<String, f64> = Default::default();
     for s in &sessions {
         // SessionRecord 无 updated_at，无法直接按日聚合
         // 用 threads 中对应 token 比例估算，这里简化：按 session 贡献的 cost 均摊到 token_map 的日期
