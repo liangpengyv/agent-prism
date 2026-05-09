@@ -146,7 +146,7 @@ function addModel() {
   newModel.name = ''; newModel.input_per_1m = ''; newModel.cached_input_per_1m = ''; newModel.output_per_1m = ''
 }
 
-const sortedModels = () => Object.keys(prices.value).sort()
+const sortedModels = () => Object.keys(prices.value)
 </script>
 
 <template>

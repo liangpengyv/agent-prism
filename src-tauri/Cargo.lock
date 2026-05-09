@@ -10,6 +10,7 @@ dependencies = [
  "chrono",
  "dirs 5.0.1",
  "glob",
+ "indexmap 2.14.0",
  "rusqlite",
  "serde",
  "serde_json",

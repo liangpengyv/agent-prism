@@ -5,6 +5,7 @@ use crate::data_source::codex::reconciler::ReconcileResult;
 use crate::data_source::codex::reconciler::reconcile;
 use crate::data_source::codex::CodexSource;
 use crate::data_source::{AgentSource, CommandResult, ThreadRecord};
+use indexmap::IndexMap;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -272,7 +273,7 @@ pub fn set_budget(tokens: i64) -> CommandResult<String> {
 }
 
 #[tauri::command]
-pub fn get_prices() -> CommandResult<HashMap<String, ModelPrice>> {
+pub fn get_prices() -> CommandResult<IndexMap<String, ModelPrice>> {
     use crate::store::AppStore;
     match AppStore::new() {
         Ok(store) => match store.get_prices() {
@@ -285,7 +286,7 @@ pub fn get_prices() -> CommandResult<HashMap<String, ModelPrice>> {
 }
 
 #[tauri::command]
-pub fn set_prices(prices: HashMap<String, ModelPrice>) -> CommandResult<String> {
+pub fn set_prices(prices: IndexMap<String, ModelPrice>) -> CommandResult<String> {
     use crate::store::AppStore;
     match AppStore::new() {
         Ok(store) => match store.set_prices(&prices) {
@@ -297,7 +298,7 @@ pub fn set_prices(prices: HashMap<String, ModelPrice>) -> CommandResult<String> 
 }
 
 #[tauri::command]
-pub fn reset_prices() -> CommandResult<HashMap<String, ModelPrice>> {
+pub fn reset_prices() -> CommandResult<IndexMap<String, ModelPrice>> {
     use crate::store::AppStore;
     match AppStore::new() {
         Ok(store) => match store.delete_prices() {

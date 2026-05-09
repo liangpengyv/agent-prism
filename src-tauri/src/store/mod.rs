@@ -1,7 +1,7 @@
 use anyhow::Result;
+use indexmap::IndexMap;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
-use std::collections::HashMap;
 use crate::billing::ModelPrice;
 
 pub struct AppStore {
@@ -79,7 +79,7 @@ impl AppStore {
     }
 
     /// 将自定义价格表序列化为 JSON 存入 meta 表
-    pub fn set_prices(&self, prices: &HashMap<String, ModelPrice>) -> Result<()> {
+    pub fn set_prices(&self, prices: &IndexMap<String, ModelPrice>) -> Result<()> {
         let json = serde_json::to_string(prices)?;
         let conn = Connection::open(&self.db_path)?;
         conn.execute(
@@ -90,7 +90,7 @@ impl AppStore {
     }
 
     /// 读取自定义价格表，不存在则返回 None（由调用方决定是否回退到默认）
-    pub fn get_prices(&self) -> Result<Option<HashMap<String, ModelPrice>>> {
+    pub fn get_prices(&self) -> Result<Option<IndexMap<String, ModelPrice>>> {
         let conn = Connection::open(&self.db_path)?;
         let result: rusqlite::Result<String> = conn.query_row(
             "SELECT value FROM meta WHERE key = 'custom_prices'",

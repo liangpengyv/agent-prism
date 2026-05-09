@@ -1,4 +1,5 @@
 use crate::data_source::SessionRecord;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -23,12 +24,12 @@ pub struct CostEstimate {
 }
 
 pub struct BillingMatrix {
-    pub prices: HashMap<String, ModelPrice>,
+    pub prices: IndexMap<String, ModelPrice>,
 }
 
 impl BillingMatrix {
-    pub fn default_prices() -> HashMap<String, ModelPrice> {
-        let mut m = HashMap::new();
+    pub fn default_prices() -> IndexMap<String, ModelPrice> {
+        let mut m = IndexMap::new();
         // GPT-5 系列（价格来源：OpenAI API Pricing https://openai.com/api/pricing/）
         m.insert("gpt-5.5".into(), ModelPrice {
             input_per_1m: 5.0,
@@ -57,7 +58,7 @@ impl BillingMatrix {
         Self { prices: Self::default_prices() }
     }
 
-    pub fn with_prices(prices: HashMap<String, ModelPrice>) -> Self {
+    pub fn with_prices(prices: IndexMap<String, ModelPrice>) -> Self {
         Self { prices }
     }
 
@@ -91,7 +92,6 @@ impl BillingMatrix {
 
         CostEstimate { total_usd, breakdown, is_estimate: true }
     }
-
 }
 
 #[cfg(test)]

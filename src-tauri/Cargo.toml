@@ -28,6 +28,7 @@ dirs = "5"
 chrono = { version = "0.4", features = ["serde"] }
 anyhow = "1"
 ureq = { version = "2", features = ["json"] }
+indexmap = { version = "2", features = ["serde"] }
 
 [dev-dependencies]
 tempfile = "3"
