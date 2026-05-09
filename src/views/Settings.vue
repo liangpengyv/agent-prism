@@ -61,7 +61,7 @@ async function checkUpdate() {
     if (res.error) {
       updateMsg.value = { text: `检查失败：${res.error}` }
     } else if (res.data?.has_update) {
-      updateMsg.value = { text: `发现新版本 v${res.data.latest_version}，请在终端执行：brew upgrade --cask agent-prism`, hasUpdate: true }
+      updateMsg.value = { text: `发现新版本 v${res.data.latest_version}，请在终端执行：brew update && brew upgrade --cask agent-prism`, hasUpdate: true }
     } else {
       updateMsg.value = { text: '当前已是最新版本' }
     }
