@@ -41,19 +41,14 @@ impl BillingMatrix {
             output_per_1m: 15.0,
         });
         m.insert("gpt-5.4-mini".into(), ModelPrice {
-            input_per_1m: 1.0,
-            cached_input_per_1m: 0.25,
-            output_per_1m: 4.0,
-        });
-        m.insert("gpt-5.3-codex".into(), ModelPrice {
-            input_per_1m: 3.0,
-            cached_input_per_1m: 0.75,
-            output_per_1m: 12.0,
+            input_per_1m: 0.75,
+            cached_input_per_1m: 0.075,
+            output_per_1m: 4.5,
         });
         m.insert("gpt-5.2".into(), ModelPrice {
-            input_per_1m: 2.5,
-            cached_input_per_1m: 0.625,
-            output_per_1m: 10.0,
+            input_per_1m: 1.75,
+            cached_input_per_1m: 0.175,
+            output_per_1m: 14.0,
         });
         m
     }
@@ -72,7 +67,7 @@ impl BillingMatrix {
         self.prices.values()
             .map(|p| p.avg_per_token())
             .fold(f64::MAX, f64::min)
-            .min(2.5 / 1_000_000.0) // 上限 gpt-5.4-mini 均价
+            .min(2.625 / 1_000_000.0) // 上限 gpt-5.4-mini 均价
     }
 
     pub fn estimate(&self, sessions: &[SessionRecord]) -> CostEstimate {
@@ -121,11 +116,11 @@ mod tests {
     #[test]
     fn test_cost_calculation() {
         let matrix = BillingMatrix::new();
-        // gpt-5.4-mini: input=1.0, cached=0.25, output=4.0 per 1M
-        // 1M uncached input + 0 cached + 1M output = 1.0 + 0 + 4.0 = 5.0
+        // gpt-5.4-mini: input=0.75, cached=0.075, output=4.5 per 1M
+        // 1M uncached input + 0 cached + 1M output = 0.75 + 0 + 4.5 = 5.25
         let sessions = vec![make_session("gpt-5.4-mini", 1_000_000, 0, 1_000_000)];
         let estimate = matrix.estimate(&sessions);
-        assert!((estimate.total_usd - 5.0).abs() < 0.001);
+        assert!((estimate.total_usd - 5.25).abs() < 0.001);
         assert!(estimate.is_estimate);
     }
 
