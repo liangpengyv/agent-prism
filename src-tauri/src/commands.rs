@@ -324,7 +324,7 @@ pub struct UpdateInfo {
 pub fn check_update() -> CommandResult<UpdateInfo> {
     let current = env!("CARGO_PKG_VERSION");
     let repo = "liangpengyv/agent-prism";
-    let api_url = format!("https://api.github.com/repos/{repo}/releases/latest");
+    let api_url = format!("https://api.github.com/repos/{repo}/releases");
 
     let response = match ureq::get(&api_url)
         .set("User-Agent", "AgentPrism")
@@ -339,13 +339,18 @@ pub fn check_update() -> CommandResult<UpdateInfo> {
         Err(e) => return CommandResult::err(format!("解析响应失败: {e}")),
     };
 
-    let tag = json.get("tag_name")
+    let latest = match json.as_array().and_then(|arr| arr.first()) {
+        Some(r) => r,
+        None => return CommandResult::err("暂无发布版本".to_string()),
+    };
+
+    let tag = latest.get("tag_name")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .trim_start_matches('v')
         .to_string();
 
-    let html_url = json.get("html_url")
+    let html_url = latest.get("html_url")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
