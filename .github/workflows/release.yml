@@ -45,13 +45,15 @@ jobs:
 
       - name: Repackage DMG with signed app
         run: |
+          VERSION="${{ github.ref_name }}"
           DMG_SRC=$(ls src-tauri/target/release/bundle/dmg/*.dmg | head -1)
-          DMG_OUT="src-tauri/target/release/bundle/dmg/AgentPrism_signed.dmg"
+          DMG_OUT="src-tauri/target/release/bundle/dmg/AgentPrism_${VERSION}.dmg"
           MOUNT_DIR=$(mktemp -d)
           hdiutil attach "$DMG_SRC" -mountpoint "$MOUNT_DIR" -nobrowse -quiet
           APP_NAME=$(ls "$MOUNT_DIR" | grep '\.app$' | head -1)
           STAGING=$(mktemp -d)
           cp -r "$MOUNT_DIR/$APP_NAME" "$STAGING/"
+          ln -s /Applications "$STAGING/Applications"
           hdiutil detach "$MOUNT_DIR" -quiet
           hdiutil create -volname "AgentPrism" -srcfolder "$STAGING" -ov -format UDZO "$DMG_OUT"
           rm -rf "$STAGING" "$MOUNT_DIR"
@@ -62,4 +64,4 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
           files: |
-            src-tauri/target/release/bundle/dmg/AgentPrism_signed.dmg
+            src-tauri/target/release/bundle/dmg/AgentPrism_${{ github.ref_name }}.dmg
