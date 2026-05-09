@@ -1,6 +1,6 @@
 [package]
 name = "AgentPrism"
-version = "0.1.0"
+version = "0.1.0-alpha"
 description = "AgentPrism - Local AI Agent Token Monitor"
 authors = ["you"]
 edition = "2021"
@@ -27,6 +27,7 @@ glob = "0.3"
 dirs = "5"
 chrono = { version = "0.4", features = ["serde"] }
 anyhow = "1"
+ureq = { version = "2", features = ["json"] }
 
 [dev-dependencies]
 tempfile = "3"

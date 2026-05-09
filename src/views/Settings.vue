@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-opener'
 import type { CommandResult } from '../composables/useStats'
 
 defineEmits<{ back: [] }>()
@@ -15,6 +16,11 @@ interface ModelPrice {
 type PriceMap = Record<string, ModelPrice>
 
 const DEFAULT_BUDGET = 10_000_000
+
+// 版本与更新
+const appVersion = ref('')
+const checking = ref(false)
+const updateMsg = ref<{ text: string; url?: string } | null>(null)
 
 // 预算
 const budgetInput = ref<string>('')
@@ -36,13 +42,34 @@ const editing = ref<string | null>(null)
 const editBuf = reactive<ModelPrice>({ input_per_1m: 0, cached_input_per_1m: 0, output_per_1m: 0 })
 
 onMounted(async () => {
-  const [bRes, pRes] = await Promise.all([
+  const [vRes, bRes, pRes] = await Promise.all([
+    invoke<CommandResult<string>>('get_app_version'),
     invoke<CommandResult<number | null>>('get_budget'),
     invoke<CommandResult<PriceMap>>('get_prices'),
   ])
+  if (vRes.data) appVersion.value = vRes.data
   budgetInput.value = String(bRes.data ?? DEFAULT_BUDGET)
   if (pRes.data) prices.value = pRes.data
 })
+
+interface UpdateInfo { has_update: boolean; latest_version: string; release_url: string }
+
+async function checkUpdate() {
+  checking.value = true
+  updateMsg.value = null
+  try {
+    const res = await invoke<CommandResult<UpdateInfo>>('check_update')
+    if (res.error) {
+      updateMsg.value = { text: `检查失败：${res.error}` }
+    } else if (res.data?.has_update) {
+      updateMsg.value = { text: `发现新版本 v${res.data.latest_version}`, url: res.data.release_url }
+    } else {
+      updateMsg.value = { text: '当前已是最新版本' }
+    }
+  } finally {
+    checking.value = false
+  }
+}
 
 async function saveBudget() {
   const val = parseInt(budgetInput.value, 10)
@@ -128,6 +155,23 @@ const sortedModels = () => Object.keys(prices.value).sort()
       <button class="back-btn" @click="$emit('back')">← 返回</button>
       <span class="title">设置</span>
     </header>
+
+    <!-- 关于 -->
+    <div class="section">
+      <div class="section-title">关于</div>
+      <div class="about-row">
+        <span class="about-version">AgentPrism {{ appVersion ? `v${appVersion}` : '' }}</span>
+        <div class="about-actions">
+          <span v-if="updateMsg" class="update-msg" :class="{ 'has-update': updateMsg.url }">
+            {{ updateMsg.text }}
+            <a v-if="updateMsg.url" @click.prevent="open(updateMsg.url!)" href="#">前往下载</a>
+          </span>
+          <button class="btn-secondary" @click="checkUpdate" :disabled="checking">
+            {{ checking ? '检查中…' : '检查更新' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- 预算 -->
     <div class="section">
@@ -253,4 +297,11 @@ const sortedModels = () => Object.keys(prices.value).sort()
 .btn-cancel { background: #f5f5f5; color: #666; }
 .btn-cancel:hover { background: #e0e0e0; }
 .add-error { font-size: 12px; color: #c0392b; margin-top: 6px; }
+.about-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.about-version { font-size: 13px; color: #555; }
+.about-actions { display: flex; align-items: center; gap: 10px; }
+.update-msg { font-size: 12px; color: #888; }
+.update-msg.has-update { color: #2e7d32; }
+.update-msg a { color: #0077cc; text-decoration: none; margin-left: 4px; cursor: pointer; }
+.update-msg a:hover { text-decoration: underline; }
 </style>

@@ -307,3 +307,54 @@ pub fn reset_prices() -> CommandResult<HashMap<String, ModelPrice>> {
         Err(e) => CommandResult::err(format!("初始化 store 失败: {e}")),
     }
 }
+
+#[tauri::command]
+pub fn get_app_version() -> CommandResult<String> {
+    CommandResult::ok(env!("CARGO_PKG_VERSION").to_string())
+}
+
+#[derive(Serialize)]
+pub struct UpdateInfo {
+    pub has_update: bool,
+    pub latest_version: String,
+    pub release_url: String,
+}
+
+#[tauri::command]
+pub fn check_update() -> CommandResult<UpdateInfo> {
+    let current = env!("CARGO_PKG_VERSION");
+    let repo = "liangpengyv/agent-prism";
+    let api_url = format!("https://api.github.com/repos/{repo}/releases/latest");
+
+    let response = match ureq::get(&api_url)
+        .set("User-Agent", "AgentPrism")
+        .call()
+    {
+        Ok(r) => r,
+        Err(e) => return CommandResult::err(format!("请求失败: {e}")),
+    };
+
+    let json: serde_json::Value = match response.into_json() {
+        Ok(v) => v,
+        Err(e) => return CommandResult::err(format!("解析响应失败: {e}")),
+    };
+
+    let tag = json.get("tag_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim_start_matches('v')
+        .to_string();
+
+    let html_url = json.get("html_url")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let has_update = !tag.is_empty() && tag != current;
+
+    CommandResult::ok(UpdateInfo {
+        has_update,
+        latest_version: tag,
+        release_url: html_url,
+    })
+}
