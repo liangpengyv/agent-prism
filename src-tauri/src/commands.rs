@@ -36,7 +36,6 @@ pub struct ModelStat {
 pub struct DayStat {
     pub date: String,
     pub tokens: i64,
-    pub cost_usd: f64,
 }
 
 #[derive(Serialize)]
@@ -242,11 +241,7 @@ pub fn get_by_date() -> CommandResult<Vec<DayStat>> {
 
     let stats: Vec<DayStat> = token_map
         .into_iter()
-        .map(|(date, tokens)| DayStat {
-            cost_usd: 0.0,
-            date,
-            tokens,
-        })
+        .map(|(date, tokens)| DayStat { date, tokens })
         .collect();
 
     CommandResult::ok_with_warnings(stats, warnings)

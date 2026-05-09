@@ -17,7 +17,6 @@ export interface ModelStat {
 export interface DayStat {
   date: string
   tokens: number
-  cost_usd: number
 }
 
 export function useAggregates() {
