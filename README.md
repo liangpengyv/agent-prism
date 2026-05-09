@@ -24,7 +24,8 @@ brew install --cask agent-prism
 升级到新版本：
 
 ```bash
-brew update && brew upgrade --cask agent-prism
+brew update
+brew upgrade --cask agent-prism
 ```
 
 ## 数据来源
