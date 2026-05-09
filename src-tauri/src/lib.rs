@@ -33,7 +33,7 @@ pub fn run() {
             // 启动时无可见窗口，切为 Accessory（Dock 图标隐藏）
             let _ = app.set_activation_policy(ActivationPolicy::Accessory);
 
-            let quit = MenuItem::with_id(app, "quit", "退出 AgentPrism", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "打开看板", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
 
