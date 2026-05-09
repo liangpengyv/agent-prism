@@ -22,6 +22,7 @@ pub struct ThreadRecord {
 pub struct SessionRecord {
     pub session_id: String,
     pub cwd: String,
+    pub model: String,
     pub model_provider: String,
     pub input_tokens: i64,
     pub cached_input_tokens: i64,

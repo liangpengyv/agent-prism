@@ -195,9 +195,9 @@ pub fn get_by_model() -> CommandResult<Vec<ModelStat>> {
     let mut cost_map: HashMap<String, f64> = Default::default();
 
     for s in &sessions {
-        *token_map.entry(s.model_provider.clone()).or_insert(0) += s.total_tokens;
+        *token_map.entry(s.model.clone()).or_insert(0) += s.total_tokens;
         let cost = matrix.estimate(std::slice::from_ref(s)).total_usd;
-        *cost_map.entry(s.model_provider.clone()).or_insert(0.0) += cost;
+        *cost_map.entry(s.model.clone()).or_insert(0.0) += cost;
     }
 
     let mut stats: Vec<ModelStat> = token_map

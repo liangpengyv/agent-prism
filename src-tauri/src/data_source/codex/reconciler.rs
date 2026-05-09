@@ -52,7 +52,8 @@ mod tests {
 
     fn make_session(total: i64) -> SessionRecord {
         SessionRecord {
-            session_id: "s1".into(), cwd: "".into(), model_provider: "".into(),
+            session_id: "s1".into(), cwd: "".into(),
+            model: "".into(), model_provider: "".into(),
             input_tokens: 0, cached_input_tokens: 0, output_tokens: 0,
             reasoning_output_tokens: 0, total_tokens: total,
             source: "codex".into(),

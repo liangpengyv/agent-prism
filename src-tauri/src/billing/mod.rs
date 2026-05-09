@@ -46,16 +46,16 @@ impl BillingMatrix {
             cached_input_per_1m: 0.1,
             output_per_1m: 1.6,
         });
-        // GPT-5 系列（价格为估算，以 OpenAI 官方公布为准）
+        // GPT-5 系列（价格来源：OpenAI API Pricing https://openai.com/api/pricing/）
         m.insert("gpt-5.5".into(), ModelPrice {
-            input_per_1m: 10.0,
-            cached_input_per_1m: 2.5,
-            output_per_1m: 40.0,
+            input_per_1m: 5.0,
+            cached_input_per_1m: 0.5,
+            output_per_1m: 30.0,
         });
         m.insert("gpt-5.4".into(), ModelPrice {
-            input_per_1m: 5.0,
-            cached_input_per_1m: 1.25,
-            output_per_1m: 20.0,
+            input_per_1m: 2.5,
+            cached_input_per_1m: 0.25,
+            output_per_1m: 15.0,
         });
         m.insert("gpt-5.4-mini".into(), ModelPrice {
             input_per_1m: 1.0,
@@ -98,7 +98,7 @@ impl BillingMatrix {
         let fallback = self.fallback_avg_per_token();
 
         for session in sessions {
-            let cost = if let Some(price) = self.prices.get(&session.model_provider) {
+            let cost = if let Some(price) = self.prices.get(&session.model) {
                 let uncached = (session.input_tokens - session.cached_input_tokens).max(0);
                 uncached as f64 / 1_000_000.0 * price.input_per_1m
                     + session.cached_input_tokens as f64 / 1_000_000.0 * price.cached_input_per_1m
@@ -108,7 +108,7 @@ impl BillingMatrix {
             };
 
             total_usd += cost;
-            *breakdown.entry(session.model_provider.clone()).or_insert(0.0) += cost;
+            *breakdown.entry(session.model.clone()).or_insert(0.0) += cost;
         }
 
         CostEstimate { total_usd, breakdown, is_estimate: true }
@@ -120,11 +120,12 @@ impl BillingMatrix {
 mod tests {
     use super::*;
 
-    fn make_session(model_provider: &str, input: i64, cached: i64, output: i64) -> SessionRecord {
+    fn make_session(model: &str, input: i64, cached: i64, output: i64) -> SessionRecord {
         SessionRecord {
             session_id: "s1".into(),
             cwd: "".into(),
-            model_provider: model_provider.into(),
+            model: model.into(),
+            model_provider: "openai".into(),
             input_tokens: input,
             cached_input_tokens: cached,
             output_tokens: output,

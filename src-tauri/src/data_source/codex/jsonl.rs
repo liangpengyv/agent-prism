@@ -44,6 +44,7 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_default();
     let mut cwd = String::new();
+    let mut model = String::new();
     let mut model_provider = String::new();
     let mut last_token_count: Option<Value> = None;
     let mut warnings = Vec::new();
@@ -79,11 +80,16 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
                         cwd = c.to_string();
                     }
                     if let Some(mp) = payload.get("model_provider").and_then(|s| s.as_str())
-                        .or_else(|| payload.get("model").and_then(|s| s.as_str()))
                         .or_else(|| payload.get("provider").and_then(|s| s.as_str()))
                     {
                         model_provider = mp.to_string();
                     }
+                }
+            }
+            "turn_context" => {
+                // 从 turn_context 提取 model
+                if let Some(m) = v.get("model").and_then(|s| s.as_str()) {
+                    model = m.to_string();
                 }
             }
             "event_msg" => {
@@ -101,6 +107,7 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
     let record = last_token_count.map(|tc| SessionRecord {
         session_id,
         cwd,
+        model,
         model_provider,
         input_tokens: tc.get("input_tokens").and_then(|v| v.as_i64()).unwrap_or(0),
         cached_input_tokens: tc.get("cached_input_tokens").and_then(|v| v.as_i64()).unwrap_or(0),
@@ -130,6 +137,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         make_session_file(&dir, "s1.jsonl", r#"
 {"type":"session_meta","timestamp":"2026-01-01T00:00:00Z","payload":{"id":"s1","cwd":"/proj","model_provider":"openai"}}
+{"type":"turn_context","model":"gpt-5.5"}
 {"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":20,"output_tokens":50,"reasoning_output_tokens":0,"total_tokens":150}}}}
 {"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":200,"cached_input_tokens":40,"output_tokens":80,"reasoning_output_tokens":10,"total_tokens":280}}}}
 "#);
@@ -137,6 +145,8 @@ mod tests {
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].total_tokens, 280);
         assert_eq!(sessions[0].input_tokens, 200);
+        assert_eq!(sessions[0].model, "gpt-5.5");
+        assert_eq!(sessions[0].model_provider, "openai");
         assert!(warnings.is_empty());
     }
 
@@ -145,6 +155,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         make_session_file(&dir, "s2.jsonl", r#"
 {"type":"session_meta","timestamp":"2026-01-01T00:00:00Z","payload":{"id":"s2","cwd":"/proj","model_provider":"openai"}}
+{"type":"turn_context","model":"gpt-5.5"}
 not valid json
 {"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":0,"output_tokens":50,"reasoning_output_tokens":0,"total_tokens":150}}}}
 "#);
