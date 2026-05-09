@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { open } from '@tauri-apps/plugin-opener'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import type { CommandResult } from '../composables/useStats'
 
 defineEmits<{ back: [] }>()
@@ -164,7 +164,7 @@ const sortedModels = () => Object.keys(prices.value).sort()
         <div class="about-actions">
           <span v-if="updateMsg" class="update-msg" :class="{ 'has-update': updateMsg.url }">
             {{ updateMsg.text }}
-            <a v-if="updateMsg.url" @click.prevent="open(updateMsg.url!)" href="#">前往下载</a>
+            <a v-if="updateMsg.url" @click.prevent="openUrl(updateMsg.url!)" href="#">前往下载</a>
           </span>
           <button class="btn-secondary" @click="checkUpdate" :disabled="checking">
             {{ checking ? '检查中…' : '检查更新' }}
