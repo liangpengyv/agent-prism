@@ -38,24 +38,10 @@ jobs:
       - name: Build Tauri app
         run: pnpm tauri build
 
-      - name: Ad-hoc sign and repackage DMG
-        run: |
-          APP_PATH="src-tauri/target/release/bundle/macos/AgentPrism.app"
-          VERSION="${{ github.ref_name }}"
-          DMG_OUT="src-tauri/target/release/bundle/dmg/AgentPrism_${VERSION}.dmg"
-
-          codesign --deep --force --sign - "$APP_PATH"
-
-          STAGING=$(mktemp -d)
-          cp -r "$APP_PATH" "$STAGING/"
-          ln -s /Applications "$STAGING/Applications"
-          hdiutil create -volname "AgentPrism" -srcfolder "$STAGING" -ov -format UDZO "$DMG_OUT"
-          rm -rf "$STAGING"
-
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           draft: false
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
           files: |
-            src-tauri/target/release/bundle/dmg/AgentPrism_${{ github.ref_name }}.dmg
+            src-tauri/target/release/bundle/dmg/*.dmg
