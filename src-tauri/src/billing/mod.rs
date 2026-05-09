@@ -40,6 +40,11 @@ impl BillingMatrix {
             cached_input_per_1m: 0.25,
             output_per_1m: 15.0,
         });
+        m.insert("gpt-5.4-mini".into(), ModelPrice {
+            input_per_1m: 1.0,
+            cached_input_per_1m: 0.25,
+            output_per_1m: 4.0,
+        });
         m.insert("gpt-5.3-codex".into(), ModelPrice {
             input_per_1m: 3.0,
             cached_input_per_1m: 0.75,
@@ -49,11 +54,6 @@ impl BillingMatrix {
             input_per_1m: 2.5,
             cached_input_per_1m: 0.625,
             output_per_1m: 10.0,
-        });
-        m.insert("gpt-5.4-mini".into(), ModelPrice {
-            input_per_1m: 1.0,
-            cached_input_per_1m: 0.25,
-            output_per_1m: 4.0,
         });
         m
     }
