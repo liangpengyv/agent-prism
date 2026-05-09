@@ -65,10 +65,16 @@ jobs:
 
             url "https://github.com/liangpengyv/agent-prism/releases/download/v#{version}/AgentPrism_#{version}_aarch64.dmg"
             name "AgentPrism"
-            desc "Local AI Agent Token monitor for Codex"
+            desc "Local AI Agent Token usage monitor"
             homepage "https://github.com/liangpengyv/agent-prism"
 
             app "AgentPrism.app"
+
+            postflight do
+              system_command "/usr/bin/xattr",
+                args: ["-dr", "com.apple.quarantine", "#{appdir}/AgentPrism.app"],
+                sudo: false
+            end
 
             zap trash: [
               "~/.agent-prism",
