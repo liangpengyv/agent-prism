@@ -2,7 +2,6 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { openUrl } from '@tauri-apps/plugin-opener'
 import type { CommandResult } from '../composables/useStats'
 
 defineEmits<{ back: [] }>()
@@ -20,7 +19,7 @@ const DEFAULT_BUDGET = 1_000_000_000
 // 版本与更新
 const appVersion = ref('')
 const checking = ref(false)
-const updateMsg = ref<{ text: string; url?: string } | null>(null)
+const updateMsg = ref<{ text: string; hasUpdate?: boolean } | null>(null)
 
 // 预算
 const budgetInput = ref<string>('')
@@ -62,7 +61,7 @@ async function checkUpdate() {
     if (res.error) {
       updateMsg.value = { text: `检查失败：${res.error}` }
     } else if (res.data?.has_update) {
-      updateMsg.value = { text: `发现新版本 v${res.data.latest_version}`, url: res.data.release_url }
+      updateMsg.value = { text: `发现新版本 v${res.data.latest_version}，请在终端执行：brew upgrade --cask agent-prism`, hasUpdate: true }
     } else {
       updateMsg.value = { text: '当前已是最新版本' }
     }
@@ -162,9 +161,8 @@ const sortedModels = () => Object.keys(prices.value)
       <div class="about-row">
         <span class="about-version">AgentPrism {{ appVersion ? `v${appVersion}` : '' }}</span>
         <div class="about-actions">
-          <span v-if="updateMsg" class="update-msg" :class="{ 'has-update': updateMsg.url }">
+          <span v-if="updateMsg" class="update-msg" :class="{ 'has-update': updateMsg.hasUpdate }">
             {{ updateMsg.text }}
-            <a v-if="updateMsg.url" @click.prevent="openUrl(updateMsg.url!)" href="#">前往下载</a>
           </span>
           <button class="btn-secondary" @click="checkUpdate" :disabled="checking">
             {{ checking ? '检查中…' : '检查更新' }}

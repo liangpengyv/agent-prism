@@ -14,9 +14,18 @@
 
 ## 安装
 
-前往 [Releases](https://github.com/liangpengyv/agent-prism/releases) 页面下载最新版 `.dmg` 文件，打开后将 AgentPrism 拖入应用程序文件夹即可。
+需要先安装 [Homebrew](https://brew.sh)，然后执行：
 
-> **注意**：当前为 alpha 版本，安装包暂未经过 Apple 签名。首次打开时 macOS 可能提示"无法验证开发者"，请在访达中右键点击应用，选择"打开"即可绕过该提示。
+```bash
+brew tap liangpengyv/tap
+brew install --cask agent-prism
+```
+
+升级到新版本：
+
+```bash
+brew upgrade --cask agent-prism
+```
 
 ## 数据来源
 

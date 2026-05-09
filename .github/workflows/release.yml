@@ -45,3 +45,39 @@ jobs:
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
           files: |
             src-tauri/target/release/bundle/dmg/*.dmg
+
+      - name: Update Homebrew tap
+        env:
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION_CLEAN="${VERSION#v}"
+          DMG="src-tauri/target/release/bundle/dmg/AgentPrism_${VERSION_CLEAN}_aarch64.dmg"
+          SHA256=$(shasum -a 256 "$DMG" | awk '{print $1}')
+
+          git clone https://x-access-token:${TAP_GITHUB_TOKEN}@github.com/liangpengyv/homebrew-tap.git /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+
+          cat > Casks/agent-prism.rb << CASK
+          cask "agent-prism" do
+            version "${VERSION_CLEAN}"
+            sha256 "${SHA256}"
+
+            url "https://github.com/liangpengyv/agent-prism/releases/download/v#{version}/AgentPrism_#{version}_aarch64.dmg"
+            name "AgentPrism"
+            desc "Local AI Agent Token monitor for Codex"
+            homepage "https://github.com/liangpengyv/agent-prism"
+
+            app "AgentPrism.app"
+
+            zap trash: [
+              "~/.agent-prism",
+            ]
+          end
+          CASK
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/agent-prism.rb
+          git commit -m "chore: update agent-prism to ${VERSION_CLEAN}"
+          git push
