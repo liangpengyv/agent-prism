@@ -70,8 +70,6 @@ pub fn get_summary() -> CommandResult<SummaryData> {
     };
     warnings.append(&mut s_warns);
 
-    eprintln!("[get_summary] threads={} sessions={}", threads.len(), sessions.len());
-
     let reconcile_result = reconcile(&threads, &sessions);
     if let Some(ref w) = reconcile_result.warning {
         warnings.push(w.clone());
@@ -79,8 +77,6 @@ pub fn get_summary() -> CommandResult<SummaryData> {
 
     let matrix = load_matrix();
     let cost = matrix.estimate(&sessions);
-
-    eprintln!("[get_summary] estimated_cost_usd={}", cost.total_usd);
 
     let top_project = {
         let mut project_tokens: std::collections::HashMap<String, i64> = Default::default();

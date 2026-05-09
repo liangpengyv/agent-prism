@@ -97,28 +97,20 @@ impl BillingMatrix {
         let mut breakdown: HashMap<String, f64> = HashMap::new();
         let fallback = self.fallback_avg_per_token();
 
-        eprintln!("[BillingMatrix] estimate called with {} sessions, fallback={}", sessions.len(), fallback);
-
         for session in sessions {
             let cost = if let Some(price) = self.prices.get(&session.model_provider) {
                 let uncached = (session.input_tokens - session.cached_input_tokens).max(0);
-                let c = uncached as f64 / 1_000_000.0 * price.input_per_1m
+                uncached as f64 / 1_000_000.0 * price.input_per_1m
                     + session.cached_input_tokens as f64 / 1_000_000.0 * price.cached_input_per_1m
-                    + session.output_tokens as f64 / 1_000_000.0 * price.output_per_1m;
-                eprintln!("  session model={} (known) cost={}", session.model_provider, c);
-                c
+                    + session.output_tokens as f64 / 1_000_000.0 * price.output_per_1m
             } else {
-                // 未知模型用 fallback 均价估算
-                let c = session.total_tokens as f64 * fallback;
-                eprintln!("  session model={} (unknown) tokens={} fallback_cost={}", session.model_provider, session.total_tokens, c);
-                c
+                session.total_tokens as f64 * fallback
             };
 
             total_usd += cost;
             *breakdown.entry(session.model_provider.clone()).or_insert(0.0) += cost;
         }
 
-        eprintln!("[BillingMatrix] total_usd={}", total_usd);
         CostEstimate { total_usd, breakdown, is_estimate: true }
     }
 

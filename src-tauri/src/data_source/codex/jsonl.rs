@@ -47,7 +47,6 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
     let mut model_provider = String::new();
     let mut last_token_count: Option<Value> = None;
     let mut warnings = Vec::new();
-    let mut line_count = 0;
 
     for line in reader.lines() {
         let line = match line {
@@ -59,8 +58,6 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
             }
         };
 
-        line_count += 1;
-
         let v: Value = match serde_json::from_str(&line) {
             Ok(v) => v,
             Err(e) => {
@@ -70,27 +67,6 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
         };
 
         let msg_type = v.get("type").and_then(|t| t.as_str()).unwrap_or("");
-
-        // 只在前5行打印原始内容，便于诊断字段名
-        if line_count <= 5 {
-            eprintln!("[JSONL] {:?} line#{} type={} keys={:?}",
-                path.file_name().unwrap_or_default(),
-                line_count,
-                msg_type,
-                v.as_object().map(|m| m.keys().cloned().collect::<Vec<_>>()).unwrap_or_default()
-            );
-            if msg_type == "session_meta" {
-                eprintln!("  session_meta full: {}", &line[..line.len().min(300)]);
-            }
-            if v.pointer("/payload/type").and_then(|t| t.as_str()) == Some("token_count") {
-                eprintln!("  token_count payload.info keys={:?}",
-                    v.pointer("/payload/info").and_then(|p| p.as_object())
-                        .map(|m| m.keys().cloned().collect::<Vec<_>>()).unwrap_or_default()
-                );
-                eprintln!("  token_count payload.info.total_token_usage: {}",
-                    v.pointer("/payload/info/total_token_usage").map(|p| p.to_string()).unwrap_or_default());
-            }
-        }
 
         match msg_type {
             "session_meta" => {
@@ -102,7 +78,6 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
                     if let Some(c) = payload.get("cwd").and_then(|s| s.as_str()) {
                         cwd = c.to_string();
                     }
-                    // 尝试多个可能的字段名
                     if let Some(mp) = payload.get("model_provider").and_then(|s| s.as_str())
                         .or_else(|| payload.get("model").and_then(|s| s.as_str()))
                         .or_else(|| payload.get("provider").and_then(|s| s.as_str()))
@@ -123,37 +98,16 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
         }
     }
 
-    let record = last_token_count.map(|tc| {
-        // 尝试多个可能的 total_tokens 字段名
-        let total_tokens = tc.get("total_tokens").and_then(|v| v.as_i64())
-            .or_else(|| tc.get("total").and_then(|v| v.as_i64()))
-            .unwrap_or(0);
-        let input_tokens = tc.get("input_tokens").and_then(|v| v.as_i64())
-            .or_else(|| tc.get("input").and_then(|v| v.as_i64()))
-            .unwrap_or(0);
-        let output_tokens = tc.get("output_tokens").and_then(|v| v.as_i64())
-            .or_else(|| tc.get("output").and_then(|v| v.as_i64()))
-            .unwrap_or(0);
-        let cached_input_tokens = tc.get("cached_input_tokens").and_then(|v| v.as_i64())
-            .or_else(|| tc.get("cached_tokens").and_then(|v| v.as_i64()))
-            .unwrap_or(0);
-        let reasoning_output_tokens = tc.get("reasoning_output_tokens").and_then(|v| v.as_i64())
-            .unwrap_or(0);
-
-        eprintln!("[JSONL] parsed session={} model={} input={} output={} total={}",
-            session_id, model_provider, input_tokens, output_tokens, total_tokens);
-
-        SessionRecord {
-            session_id,
-            cwd,
-            model_provider,
-            input_tokens,
-            cached_input_tokens,
-            output_tokens,
-            reasoning_output_tokens,
-            total_tokens,
-            source: "codex".to_string(),
-        }
+    let record = last_token_count.map(|tc| SessionRecord {
+        session_id,
+        cwd,
+        model_provider,
+        input_tokens: tc.get("input_tokens").and_then(|v| v.as_i64()).unwrap_or(0),
+        cached_input_tokens: tc.get("cached_input_tokens").and_then(|v| v.as_i64()).unwrap_or(0),
+        output_tokens: tc.get("output_tokens").and_then(|v| v.as_i64()).unwrap_or(0),
+        reasoning_output_tokens: tc.get("reasoning_output_tokens").and_then(|v| v.as_i64()).unwrap_or(0),
+        total_tokens: tc.get("total_tokens").and_then(|v| v.as_i64()).unwrap_or(0),
+        source: "codex".to_string(),
     });
 
     Ok((record, warnings))
