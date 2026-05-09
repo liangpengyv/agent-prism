@@ -87,8 +87,7 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
                 }
             }
             "turn_context" => {
-                // 从 turn_context 提取 model
-                if let Some(m) = v.get("model").and_then(|s| s.as_str()) {
+                if let Some(m) = v.pointer("/payload/model").and_then(|s| s.as_str()) {
                     model = m.to_string();
                 }
             }
@@ -137,7 +136,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         make_session_file(&dir, "s1.jsonl", r#"
 {"type":"session_meta","timestamp":"2026-01-01T00:00:00Z","payload":{"id":"s1","cwd":"/proj","model_provider":"openai"}}
-{"type":"turn_context","model":"gpt-5.5"}
+{"type":"turn_context","payload":{"model":"gpt-5.5"}}
 {"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":20,"output_tokens":50,"reasoning_output_tokens":0,"total_tokens":150}}}}
 {"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":200,"cached_input_tokens":40,"output_tokens":80,"reasoning_output_tokens":10,"total_tokens":280}}}}
 "#);
@@ -151,11 +150,43 @@ mod tests {
     }
 
     #[test]
+    fn test_reads_model_from_turn_context_payload() {
+        let dir = TempDir::new().unwrap();
+        make_session_file(&dir, "payload-model.jsonl", r#"
+{"type":"session_meta","timestamp":"2026-01-01T00:00:00Z","payload":{"id":"s1","cwd":"/proj","model_provider":"openai"}}
+{"type":"turn_context","payload":{"model":"gpt-5.5"}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":20,"output_tokens":50,"reasoning_output_tokens":0,"total_tokens":150}}}}
+"#);
+
+        let (sessions, warnings) = read_sessions(dir.path()).unwrap();
+
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].model, "gpt-5.5");
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_ignores_top_level_turn_context_model() {
+        let dir = TempDir::new().unwrap();
+        make_session_file(&dir, "top-level-model.jsonl", r#"
+{"type":"session_meta","timestamp":"2026-01-01T00:00:00Z","payload":{"id":"s1","cwd":"/proj","model_provider":"openai"}}
+{"type":"turn_context","model":"gpt-5.5"}
+{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":20,"output_tokens":50,"reasoning_output_tokens":0,"total_tokens":150}}}}
+"#);
+
+        let (sessions, warnings) = read_sessions(dir.path()).unwrap();
+
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].model, "");
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
     fn test_skips_invalid_lines() {
         let dir = TempDir::new().unwrap();
         make_session_file(&dir, "s2.jsonl", r#"
 {"type":"session_meta","timestamp":"2026-01-01T00:00:00Z","payload":{"id":"s2","cwd":"/proj","model_provider":"openai"}}
-{"type":"turn_context","model":"gpt-5.5"}
+{"type":"turn_context","payload":{"model":"gpt-5.5"}}
 not valid json
 {"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":0,"output_tokens":50,"reasoning_output_tokens":0,"total_tokens":150}}}}
 "#);
