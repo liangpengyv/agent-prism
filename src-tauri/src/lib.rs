@@ -3,7 +3,7 @@ mod commands;
 mod data_source;
 mod store;
 
-use commands::{get_summary, get_threads, refresh, get_by_project, get_by_model, get_by_date, get_budget, set_budget, get_prices, set_prices};
+use commands::{get_summary, get_threads, refresh, get_by_project, get_by_model, get_by_date, get_budget, set_budget, get_prices, set_prices, reset_prices};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -92,7 +92,7 @@ pub fn run() {
             get_summary, get_threads, refresh,
             get_by_project, get_by_model, get_by_date,
             get_budget, set_budget,
-            get_prices, set_prices
+            get_prices, set_prices, reset_prices
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

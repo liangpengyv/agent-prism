@@ -24,6 +24,7 @@ const budgetMsg = ref<string | null>(null)
 // 价格表
 const prices = ref<PriceMap>({})
 const savingPrices = ref(false)
+const resettingPrices = ref(false)
 const pricesMsg = ref<string | null>(null)
 
 // 新增表单
@@ -66,6 +67,19 @@ async function savePrices() {
     setTimeout(() => { pricesMsg.value = null }, 2000)
   } finally {
     savingPrices.value = false
+  }
+}
+
+async function resetPrices() {
+  resettingPrices.value = true
+  pricesMsg.value = null
+  try {
+    const res = await invoke<CommandResult<PriceMap>>('reset_prices')
+    if (res.data) prices.value = res.data
+    pricesMsg.value = '已恢复预设'
+    setTimeout(() => { pricesMsg.value = null }, 2000)
+  } finally {
+    resettingPrices.value = false
   }
 }
 
@@ -135,6 +149,9 @@ const sortedModels = () => Object.keys(prices.value).sort()
         <span class="section-title">计费价格表（/1M token，单位：$）</span>
         <div class="section-actions">
           <span v-if="pricesMsg" class="save-msg">{{ pricesMsg }}</span>
+          <button class="btn-secondary" @click="resetPrices" :disabled="resettingPrices">
+            {{ resettingPrices ? '重置中…' : '恢复预设' }}
+          </button>
           <button class="btn-primary" @click="savePrices" :disabled="savingPrices">
             {{ savingPrices ? '保存中…' : '保存价格表' }}
           </button>
@@ -215,6 +232,9 @@ const sortedModels = () => Object.keys(prices.value).sort()
 .btn-primary { background: #0077cc; border: none; border-radius: 5px; color: #fff; font-size: 12px; padding: 6px 14px; cursor: pointer; white-space: nowrap; }
 .btn-primary:hover { background: #005fa3; }
 .btn-primary:disabled { opacity: 0.5; cursor: default; }
+.btn-secondary { background: #f0f0f0; border: none; border-radius: 5px; color: #555; font-size: 12px; padding: 6px 14px; cursor: pointer; white-space: nowrap; }
+.btn-secondary:hover { background: #e0e0e0; }
+.btn-secondary:disabled { opacity: 0.5; cursor: default; }
 .price-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .price-table th { text-align: left; padding: 6px 8px; color: #888; font-weight: 400; border-bottom: 1px solid #e0e0e0; }
 .price-table td { padding: 5px 8px; border-bottom: 1px solid #f5f5f5; color: #333; }

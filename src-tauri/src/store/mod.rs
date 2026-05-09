@@ -103,4 +103,14 @@ impl AppStore {
             Err(e) => Err(e.into()),
         }
     }
+
+    /// 删除自定义价格表，恢复为预设值
+    pub fn delete_prices(&self) -> Result<()> {
+        let conn = Connection::open(&self.db_path)?;
+        conn.execute(
+            "DELETE FROM meta WHERE key = 'custom_prices'",
+            [],
+        )?;
+        Ok(())
+    }
 }

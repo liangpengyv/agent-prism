@@ -328,3 +328,15 @@ pub fn set_prices(prices: HashMap<String, ModelPrice>) -> CommandResult<String> 
         Err(e) => CommandResult::err(format!("初始化 store 失败: {e}")),
     }
 }
+
+#[tauri::command]
+pub fn reset_prices() -> CommandResult<HashMap<String, ModelPrice>> {
+    use crate::store::AppStore;
+    match AppStore::new() {
+        Ok(store) => match store.delete_prices() {
+            Ok(_) => CommandResult::ok(BillingMatrix::default_prices()),
+            Err(e) => CommandResult::err(format!("重置价格表失败: {e}")),
+        },
+        Err(e) => CommandResult::err(format!("初始化 store 失败: {e}")),
+    }
+}
