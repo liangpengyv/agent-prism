@@ -222,18 +222,11 @@ pub fn get_by_date() -> CommandResult<Vec<DayStat>> {
         None => return CommandResult::err("未检测到 ~/.codex 目录"),
     };
 
-    let (threads, mut warnings) = match source.threads() {
+    let (threads, warnings) = match source.threads() {
         Ok(r) => r,
         Err(e) => return CommandResult::err(format!("读取 threads 失败: {e}")),
     };
 
-    let (sessions, mut s_warns) = match source.sessions() {
-        Ok(r) => r,
-        Err(e) => return CommandResult::err(format!("读取 sessions 失败: {e}")),
-    };
-    warnings.append(&mut s_warns);
-
-    let matrix = load_matrix();
     let cutoff = Utc::now() - Duration::days(30);
 
     // token 按日期聚合
@@ -247,31 +240,10 @@ pub fn get_by_date() -> CommandResult<Vec<DayStat>> {
         *token_map.entry(date).or_insert(0) += t.tokens_used;
     }
 
-    // 费用按日期聚合（从 sessions 中按 updated_at 分组）
-    let cost_map: std::collections::BTreeMap<String, f64> = Default::default();
-    for s in &sessions {
-        // SessionRecord 无 updated_at，无法直接按日聚合
-        // 用 threads 中对应 token 比例估算，这里简化：按 session 贡献的 cost 均摊到 token_map 的日期
-        let cost = matrix.estimate(std::slice::from_ref(s)).total_usd;
-        let _ = (cost, &cost_map); // 占位，下方统一用 token_map 驱动
-    }
-
-    // 用 token_map 驱动，费用 = BillingMatrix.fallback 均价 × token（因为日粒度无法追踪模型）
-    // 同时通过 sessions 总费用 / threads 总 token 算出全局单价，按日乘以 token 数
-    let total_session_cost: f64 = sessions.iter()
-        .map(|s| matrix.estimate(std::slice::from_ref(s)).total_usd)
-        .sum();
-    let total_thread_tokens: i64 = threads.iter().map(|t| t.tokens_used).sum();
-    let global_per_token = if total_thread_tokens > 0 {
-        total_session_cost / total_thread_tokens as f64
-    } else {
-        matrix.fallback_avg_per_token()
-    };
-
     let stats: Vec<DayStat> = token_map
         .into_iter()
         .map(|(date, tokens)| DayStat {
-            cost_usd: tokens as f64 * global_per_token,
+            cost_usd: 0.0,
             date,
             tokens,
         })
