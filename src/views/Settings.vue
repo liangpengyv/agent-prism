@@ -15,7 +15,7 @@ interface ModelPrice {
 
 type PriceMap = Record<string, ModelPrice>
 
-const DEFAULT_BUDGET = 10_000_000
+const DEFAULT_BUDGET = 1_000_000_000
 
 // 版本与更新
 const appVersion = ref('')
@@ -175,16 +175,19 @@ const sortedModels = () => Object.keys(prices.value)
 
     <!-- 预算 -->
     <div class="section">
-      <div class="section-title">预算管理</div>
-      <div class="field-label">月度 Token 预算上限</div>
+      <div class="section-title-row">
+        <span class="section-title">预算管理</span>
+        <div class="section-actions">
+          <span v-if="budgetMsg" class="save-msg">{{ budgetMsg }}</span>
+          <button class="btn-primary" @click="saveBudget" :disabled="savingBudget">
+            {{ savingBudget ? '保存中…' : '保存' }}
+          </button>
+        </div>
+      </div>
       <div class="field-row">
-        <input v-model="budgetInput" type="number" min="1" class="field-input" placeholder="例：10000000" />
-        <button class="btn-primary" @click="saveBudget" :disabled="savingBudget">
-          {{ savingBudget ? '保存中…' : '保存' }}
-        </button>
+        <input v-model="budgetInput" type="number" min="1" class="field-input" placeholder="月度 Token 预算上限" />
       </div>
       <div class="field-hint">用于圆环预算图的上限基准（单位：token）</div>
-      <div v-if="budgetMsg" class="save-msg">{{ budgetMsg }}</div>
     </div>
 
     <!-- 计费价格表 -->
@@ -267,7 +270,6 @@ const sortedModels = () => Object.keys(prices.value)
 .section-title { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.06em; }
 .section-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .section-actions { display: flex; align-items: center; gap: 10px; }
-.field-label { font-size: 13px; color: #333; margin-bottom: 8px; }
 .field-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
 .field-input { flex: 1; padding: 6px 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 13px; color: #333; }
 .field-hint { font-size: 11px; color: #aaa; }
