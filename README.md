@@ -1,7 +1,34 @@
-# Tauri + Vue + TypeScript
+# AgentPrism
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+本地 AI Agent Token 消耗监控工具，读取 [Codex](https://github.com/openai/codex) 的本地数据，统计 Token 消耗与估算费用。
 
-## Recommended IDE Setup
+## 功能
 
-- [VS Code](https://code.visualstudio.com/) + [Vue - Official](https://marketplace.visualstudio.com/items?itemName=Vue.volar) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- **总览**：Token 总量、会话数、估算费用、最活跃项目
+- **项目维度**：各项目的 Token 消耗与估算费用排行
+- **模型维度**：各模型的 Token 消耗与估算费用分布
+- **时间维度**：近 30 天每日 Token 消耗柱状图
+- **预算管理**：设定月度 Token 预算上限，圆环图直观展示进度
+- **自定义价格表**：支持编辑各模型单价，一键恢复预设
+- **检查更新**：设置页内手动检查是否有新版本
+
+## 安装
+
+前往 [Releases](https://github.com/liangpengyv/agent-prism/releases) 页面下载最新版 `.dmg` 文件，打开后将 AgentPrism 拖入应用程序文件夹即可。
+
+> **注意**：当前为 alpha 版本，安装包暂未经过 Apple 签名。首次打开时 macOS 可能提示"无法验证开发者"，请在访达中右键点击应用，选择"打开"即可绕过该提示。
+
+## 数据来源
+
+AgentPrism 读取 `~/.codex/sessions/**/*.jsonl` 和 SQLite 数据库中的本地记录，所有数据处理均在本机完成，不上传任何数据。
+
+## 开发
+
+```bash
+pnpm install
+pnpm tauri dev
+```
+
+## License
+
+MIT
