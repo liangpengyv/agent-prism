@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2026-05-01T10:00:00Z","sessionId":"s1","cwd":"/Users/liang/repos/myapp","message":{"role":"user","content":[]}}
+{"type":"assistant","timestamp":"2026-05-01T10:00:01Z","message":{"model":"anthropic/claude-4.6-sonnet-20260217","usage":{"input_tokens":100,"cache_creation_input_tokens":500,"cache_read_input_tokens":200,"output_tokens":50}}}
