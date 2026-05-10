@@ -1,10 +1,10 @@
 <!-- src/views/Dashboard.vue -->
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useStats, useDataUpdatedListener } from '../composables/useStats'
 import { useAggregates } from '../composables/useAggregates'
-import { useAgentSwitch } from '../composables/useAgentSwitch'
+import { AGENTS } from '../composables/useAgentSwitch'
 import BudgetRing from '../components/BudgetRing.vue'
 import ProjectList from '../components/ProjectList.vue'
 import ModelBreakdown from '../components/ModelBreakdown.vue'
@@ -13,11 +13,11 @@ import AgentSwitcher from '../components/AgentSwitcher.vue'
 import type { CommandResult } from '../composables/useStats'
 import type { AgentId } from '../composables/useAgentSwitch'
 
-defineEmits<{ openSettings: [] }>()
+const props = defineProps<{ currentAgent: AgentId }>()
+const emit = defineEmits<{ openSettings: []; agentChange: [agent: AgentId] }>()
 
 const { summary, error, loading, loadSummary } = useStats()
 const { byProject, byModel, byDate, loadAll } = useAggregates()
-const { currentAgent, init: initAgent, switchAgent, AGENTS } = useAgentSwitch()
 const activeTab = ref<'project' | 'model' | 'date'>('project')
 const budgetTokens = ref(10_000_000)
 
@@ -27,16 +27,18 @@ async function loadBudget(agent: string) {
 }
 
 async function reload() {
-  await Promise.all([loadSummary(currentAgent.value), loadAll(currentAgent.value), loadBudget(currentAgent.value)])
+  await Promise.all([loadSummary(props.currentAgent), loadAll(props.currentAgent), loadBudget(props.currentAgent)])
 }
 
-async function handleAgentChange(agent: AgentId) {
-  await switchAgent(agent)
-  await reload()
+function handleAgentChange(agent: AgentId) {
+  emit('agentChange', agent)
 }
 
 onMounted(async () => {
-  await initAgent()
+  await reload()
+})
+
+watch(() => props.currentAgent, async () => {
   await reload()
 })
 
@@ -54,7 +56,7 @@ function formatTokens(n: number): string {
   <div class="dashboard">
     <header class="header">
       <AgentSwitcher
-        :currentAgent="currentAgent"
+        :currentAgent="props.currentAgent"
         :agents="AGENTS"
         @change="handleAgentChange"
       />
@@ -66,7 +68,10 @@ function formatTokens(n: number): string {
       </div>
     </header>
 
-    <div v-if="error" class="error-state">{{ error }}</div>
+    <div v-if="error" class="error-state">
+      <template v-if="props.currentAgent === 'codex'">未检测到 ~/.codex 目录</template>
+      <template v-else>未检测到 ~/.claude 目录</template>
+    </div>
 
     <template v-else>
       <div class="overview" v-if="summary">
@@ -84,14 +89,18 @@ function formatTokens(n: number): string {
             <div class="stat-label">估算费用</div>
           </div>
           <div class="stat">
-            <div class="stat-value">{{ summary.thread_count }}</div>
-            <div class="stat-label">线程数</div>
-          </div>
-          <div class="stat">
             <div class="stat-value">{{ summary.session_count }}</div>
             <div class="stat-label">Session 数</div>
           </div>
-          <div class="reconcile" :class="{ warn: summary.reconcile.warning }">
+          <div v-if="props.currentAgent === 'codex'" class="stat">
+            <div class="stat-value">{{ summary.thread_count }}</div>
+            <div class="stat-label">线程数</div>
+          </div>
+          <div
+            v-if="props.currentAgent === 'codex' && summary.reconcile.diff_rate >= 0"
+            class="reconcile"
+            :class="{ warn: summary.reconcile.warning }"
+          >
             对账差异率 {{ (summary.reconcile.diff_rate * 100).toFixed(1) }}%
           </div>
         </div>

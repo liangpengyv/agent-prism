@@ -1,15 +1,35 @@
 <!-- src/App.vue -->
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Dashboard from './views/Dashboard.vue'
 import Settings from './views/Settings.vue'
+import { useAgentSwitch } from './composables/useAgentSwitch'
+import type { AgentId } from './composables/useAgentSwitch'
 
 const page = ref<'dashboard' | 'settings'>('dashboard')
+const { currentAgent, init, switchAgent } = useAgentSwitch()
+
+onMounted(async () => {
+  await init()
+})
+
+async function handleAgentChange(agent: AgentId) {
+  await switchAgent(agent)
+}
 </script>
 
 <template>
-  <Dashboard v-if="page === 'dashboard'" @openSettings="page = 'settings'" />
-  <Settings v-else @back="page = 'dashboard'" />
+  <Dashboard
+    v-if="page === 'dashboard'"
+    :currentAgent="currentAgent"
+    @openSettings="page = 'settings'"
+    @agentChange="handleAgentChange"
+  />
+  <Settings
+    v-else
+    :currentAgent="currentAgent"
+    @back="page = 'dashboard'"
+  />
 </template>
 
 <style>

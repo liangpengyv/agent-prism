@@ -1,9 +1,12 @@
 <!-- src/views/Settings.vue -->
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, watch, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import type { CommandResult } from '../composables/useStats'
+import type { AgentId } from '../composables/useAgentSwitch'
+import { AGENTS } from '../composables/useAgentSwitch'
 
+const props = defineProps<{ currentAgent: AgentId }>()
 defineEmits<{ back: [] }>()
 
 interface ModelPrice {
@@ -40,15 +43,25 @@ const addError = ref<string | null>(null)
 const editing = ref<string | null>(null)
 const editBuf = reactive<ModelPrice>({ input_per_1m: 0, cached_input_per_1m: 0, output_per_1m: 0 })
 
-onMounted(async () => {
-  const [vRes, bRes, pRes] = await Promise.all([
-    invoke<CommandResult<string>>('get_app_version'),
-    invoke<CommandResult<number | null>>('get_budget'),
-    invoke<CommandResult<PriceMap>>('get_prices'),
+const agentLabel = computed(() => AGENTS.find(a => a.id === props.currentAgent)?.label ?? '')
+
+async function loadConfig() {
+  const [bRes, pRes] = await Promise.all([
+    invoke<CommandResult<number | null>>('get_budget', { agent: props.currentAgent }),
+    invoke<CommandResult<PriceMap>>('get_prices', { agent: props.currentAgent }),
   ])
-  if (vRes.data) appVersion.value = vRes.data
   budgetInput.value = String(bRes.data ?? DEFAULT_BUDGET)
   if (pRes.data) prices.value = pRes.data
+}
+
+onMounted(async () => {
+  const vRes = await invoke<CommandResult<string>>('get_app_version')
+  if (vRes.data) appVersion.value = vRes.data
+  await loadConfig()
+})
+
+watch(() => props.currentAgent, async () => {
+  await loadConfig()
 })
 
 interface UpdateInfo { has_update: boolean; latest_version: string; release_url: string }
@@ -76,7 +89,7 @@ async function saveBudget() {
   savingBudget.value = true
   budgetMsg.value = null
   try {
-    await invoke('set_budget', { tokens: val })
+    await invoke('set_budget', { agent: props.currentAgent, tokens: val })
     budgetMsg.value = '已保存'
     setTimeout(() => { budgetMsg.value = null }, 2000)
   } finally {
@@ -88,7 +101,7 @@ async function savePrices() {
   savingPrices.value = true
   pricesMsg.value = null
   try {
-    await invoke('set_prices', { prices: prices.value })
+    await invoke('set_prices', { agent: props.currentAgent, prices: prices.value })
     pricesMsg.value = '已保存'
     setTimeout(() => { pricesMsg.value = null }, 2000)
   } finally {
@@ -100,7 +113,7 @@ async function resetPrices() {
   resettingPrices.value = true
   pricesMsg.value = null
   try {
-    const res = await invoke<CommandResult<PriceMap>>('reset_prices')
+    const res = await invoke<CommandResult<PriceMap>>('reset_prices', { agent: props.currentAgent })
     if (res.data) prices.value = res.data
     pricesMsg.value = '已恢复预设'
     setTimeout(() => { pricesMsg.value = null }, 2000)
@@ -191,7 +204,7 @@ const sortedModels = () => Object.keys(prices.value)
     <!-- 计费价格表 -->
     <div class="section">
       <div class="section-title-row">
-        <span class="section-title">计费价格表（/1M token，单位：$）</span>
+        <span class="section-title">计费价格表 · {{ agentLabel }}（/1M token，单位：$）</span>
         <div class="section-actions">
           <span v-if="pricesMsg" class="save-msg">{{ pricesMsg }}</span>
           <button class="btn-secondary" @click="resetPrices" :disabled="resettingPrices">
