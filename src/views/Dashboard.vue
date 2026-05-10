@@ -19,11 +19,11 @@ const emit = defineEmits<{ openSettings: []; agentChange: [agent: AgentId] }>()
 const { summary, error, loading, loadSummary } = useStats()
 const { byProject, byModel, byDate, loadAll } = useAggregates()
 const activeTab = ref<'project' | 'model' | 'date'>('project')
-const budgetTokens = ref(10_000_000)
+const budgetTokens = ref(1_000_000_000)
 
 async function loadBudget(agent: string) {
   const res = await invoke<CommandResult<number | null>>('get_budget', { agent })
-  if (res.data != null) budgetTokens.value = res.data
+  budgetTokens.value = res.data ?? 1_000_000_000
 }
 
 async function reload() {
