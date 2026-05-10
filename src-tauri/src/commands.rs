@@ -1,9 +1,9 @@
 // src-tauri/src/commands.rs
 
 use crate::billing::{BillingMatrix, ModelPrice};
-use crate::data_source::codex::reconciler::ReconcileResult;
-use crate::data_source::codex::reconciler::reconcile;
+use crate::data_source::codex::reconciler::{reconcile, ReconcileResult};
 use crate::data_source::codex::CodexSource;
+use crate::data_source::claude::ClaudeCodeSource;
 use crate::data_source::{AgentSource, CommandResult, ThreadRecord};
 use indexmap::IndexMap;
 use serde::Serialize;
@@ -49,62 +49,112 @@ pub struct SummaryData {
     pub reconcile: ReconcileResult,
 }
 
-#[tauri::command]
-pub fn get_summary() -> CommandResult<SummaryData> {
+// ── Codex 内部实现 ──────────────────────────────────────────
+
+fn get_summary_codex() -> CommandResult<SummaryData> {
     let source = match CodexSource::new() {
         Some(s) => s,
         None => return CommandResult::err("未检测到 ~/.codex 目录"),
     };
-
     let mut warnings = Vec::new();
-
     let (threads, mut t_warns) = match source.threads() {
         Ok(r) => r,
         Err(e) => return CommandResult::err(format!("读取 threads 失败: {e}")),
     };
     warnings.append(&mut t_warns);
-
     let (sessions, mut s_warns) = match source.sessions() {
         Ok(r) => r,
         Err(e) => return CommandResult::err(format!("读取 sessions 失败: {e}")),
     };
     warnings.append(&mut s_warns);
-
     let reconcile_result = reconcile(&threads, &sessions);
     if let Some(ref w) = reconcile_result.warning {
         warnings.push(w.clone());
     }
-
     let matrix = load_matrix("codex");
     let cost = matrix.estimate(&sessions);
-
     let top_project = {
-        let mut project_tokens: std::collections::HashMap<String, i64> = Default::default();
+        let mut m: HashMap<String, i64> = Default::default();
         for t in &threads {
-            *project_tokens.entry(t.cwd.clone()).or_insert(0) += t.tokens_used;
+            *m.entry(t.cwd.clone()).or_insert(0) += t.tokens_used;
         }
-        project_tokens.into_iter().max_by_key(|(_, v)| *v).map(|(k, _)| k)
+        m.into_iter().max_by_key(|(_, v)| *v).map(|(k, _)| k)
     };
+    CommandResult::ok_with_warnings(
+        SummaryData {
+            total_tokens: reconcile_result.sqlite_total,
+            thread_count: threads.len(),
+            session_count: sessions.len(),
+            estimated_cost_usd: cost.total_usd,
+            top_project,
+            reconcile: reconcile_result,
+        },
+        warnings,
+    )
+}
 
-    let data = SummaryData {
-        total_tokens: reconcile_result.sqlite_total,
-        thread_count: threads.len(),
-        session_count: sessions.len(),
-        estimated_cost_usd: cost.total_usd,
-        top_project,
-        reconcile: reconcile_result,
+fn get_summary_claude_code() -> CommandResult<SummaryData> {
+    let source = match ClaudeCodeSource::new() {
+        Some(s) => s,
+        None => return CommandResult::err("未检测到 ~/.claude 目录"),
     };
+    let mut warnings = Vec::new();
+    let (sessions, mut s_warns) = match source.sessions() {
+        Ok(r) => r,
+        Err(e) => return CommandResult::err(format!("读取 sessions 失败: {e}")),
+    };
+    warnings.append(&mut s_warns);
+    let matrix = load_matrix("claude-code");
+    let cost = matrix.estimate(&sessions);
+    let top_project = {
+        let mut m: HashMap<String, i64> = Default::default();
+        for s in &sessions {
+            *m.entry(s.cwd.clone()).or_insert(0) += s.total_tokens;
+        }
+        m.into_iter().max_by_key(|(_, v)| *v).map(|(k, _)| k)
+    };
+    let total_tokens: i64 = sessions.iter().map(|s| s.total_tokens).sum();
+    // reconcile 不适用：diff_rate = -1.0 作为 sentinel
+    let na_reconcile = ReconcileResult {
+        sqlite_total: 0,
+        jsonl_total: total_tokens,
+        diff: 0,
+        diff_rate: -1.0,
+        warning: None,
+    };
+    CommandResult::ok_with_warnings(
+        SummaryData {
+            total_tokens,
+            thread_count: 0,
+            session_count: sessions.len(),
+            estimated_cost_usd: cost.total_usd,
+            top_project,
+            reconcile: na_reconcile,
+        },
+        warnings,
+    )
+}
 
-    CommandResult::ok_with_warnings(data, warnings)
+// ── Public Commands ─────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_summary(agent: String) -> CommandResult<SummaryData> {
+    match agent.as_str() {
+        "codex" => get_summary_codex(),
+        "claude-code" => get_summary_claude_code(),
+        _ => CommandResult::err(format!("未知 Agent: {agent}")),
+    }
 }
 
 #[tauri::command]
-pub fn get_threads() -> CommandResult<Vec<ThreadRecord>> {
+pub fn get_threads(agent: String) -> CommandResult<Vec<ThreadRecord>> {
+    if agent != "codex" {
+        return CommandResult::ok(vec![]);
+    }
     let source = match CodexSource::new() {
         Some(s) => s,
         None => return CommandResult::err("未检测到 ~/.codex 目录"),
     };
-
     match source.threads() {
         Ok((threads, warnings)) => CommandResult::ok_with_warnings(threads, warnings),
         Err(e) => CommandResult::err(format!("读取 threads 失败: {e}")),
@@ -127,34 +177,36 @@ pub fn refresh() -> CommandResult<String> {
 }
 
 #[tauri::command]
-pub fn get_by_project() -> CommandResult<Vec<ProjectStat>> {
+pub fn get_by_project(agent: String) -> CommandResult<Vec<ProjectStat>> {
+    match agent.as_str() {
+        "codex" => get_by_project_codex(),
+        "claude-code" => get_by_project_claude_code(),
+        _ => CommandResult::err(format!("未知 Agent: {agent}")),
+    }
+}
+
+fn get_by_project_codex() -> CommandResult<Vec<ProjectStat>> {
     let source = match CodexSource::new() {
         Some(s) => s,
         None => return CommandResult::err("未检测到 ~/.codex 目录"),
     };
-
     let (threads, mut warnings) = match source.threads() {
         Ok(r) => r,
         Err(e) => return CommandResult::err(format!("读取 threads 失败: {e}")),
     };
-
     let (sessions, mut s_warns) = match source.sessions() {
         Ok(r) => r,
         Err(e) => return CommandResult::err(format!("读取 sessions 失败: {e}")),
     };
     warnings.append(&mut s_warns);
-
     let matrix = load_matrix("codex");
-
-    // 按项目聚合 token
     let mut token_map: HashMap<String, i64> = Default::default();
     for t in &threads {
         let key = t.cwd.split('/').last().unwrap_or(&t.cwd).to_string();
         *token_map.entry(key).or_insert(0) += t.tokens_used;
     }
-
-    // 计算全局单价（总费用 / 总 token）
-    let total_cost: f64 = sessions.iter()
+    let total_cost: f64 = sessions
+        .iter()
         .map(|s| matrix.estimate(std::slice::from_ref(s)).total_usd)
         .sum();
     let total_tokens: i64 = threads.iter().map(|t| t.tokens_used).sum();
@@ -163,7 +215,6 @@ pub fn get_by_project() -> CommandResult<Vec<ProjectStat>> {
     } else {
         matrix.fallback_avg_per_token()
     };
-
     let mut stats: Vec<ProjectStat> = token_map
         .into_iter()
         .map(|(project, tokens)| ProjectStat {
@@ -173,33 +224,71 @@ pub fn get_by_project() -> CommandResult<Vec<ProjectStat>> {
         })
         .collect();
     stats.sort_by(|a, b| b.tokens.cmp(&a.tokens));
-
     CommandResult::ok_with_warnings(stats, warnings)
 }
 
-#[tauri::command]
-pub fn get_by_model() -> CommandResult<Vec<ModelStat>> {
-    let source = match CodexSource::new() {
+fn get_by_project_claude_code() -> CommandResult<Vec<ProjectStat>> {
+    let source = match ClaudeCodeSource::new() {
         Some(s) => s,
-        None => return CommandResult::err("未检测到 ~/.codex 目录"),
+        None => return CommandResult::err("未检测到 ~/.claude 目录"),
     };
-
     let (sessions, warnings) = match source.sessions() {
         Ok(r) => r,
         Err(e) => return CommandResult::err(format!("读取 sessions 失败: {e}")),
     };
-
-    let matrix = load_matrix("codex");
-
+    let matrix = load_matrix("claude-code");
     let mut token_map: HashMap<String, i64> = Default::default();
     let mut cost_map: HashMap<String, f64> = Default::default();
+    for s in &sessions {
+        *token_map.entry(s.cwd.clone()).or_insert(0) += s.total_tokens;
+        let cost = matrix.estimate(std::slice::from_ref(s)).total_usd;
+        *cost_map.entry(s.cwd.clone()).or_insert(0.0) += cost;
+    }
+    let mut stats: Vec<ProjectStat> = token_map
+        .into_iter()
+        .map(|(project, tokens)| ProjectStat {
+            cost_usd: *cost_map.get(&project).unwrap_or(&0.0),
+            project,
+            tokens,
+        })
+        .collect();
+    stats.sort_by(|a, b| b.tokens.cmp(&a.tokens));
+    CommandResult::ok_with_warnings(stats, warnings)
+}
 
+#[tauri::command]
+pub fn get_by_model(agent: String) -> CommandResult<Vec<ModelStat>> {
+    match agent.as_str() {
+        "codex" => get_by_model_impl("codex"),
+        "claude-code" => get_by_model_impl("claude-code"),
+        _ => CommandResult::err(format!("未知 Agent: {agent}")),
+    }
+}
+
+fn get_by_model_impl(agent: &str) -> CommandResult<Vec<ModelStat>> {
+    let sessions_result = if agent == "codex" {
+        CodexSource::new()
+            .map(|s| s.sessions())
+            .ok_or_else(|| anyhow::anyhow!("未检测到 ~/.codex 目录"))
+            .and_then(|r| r)
+    } else {
+        ClaudeCodeSource::new()
+            .map(|s| s.sessions())
+            .ok_or_else(|| anyhow::anyhow!("未检测到 ~/.claude 目录"))
+            .and_then(|r| r)
+    };
+    let (sessions, warnings) = match sessions_result {
+        Ok(r) => r,
+        Err(e) => return CommandResult::err(format!("读取 sessions 失败: {e}")),
+    };
+    let matrix = load_matrix(agent);
+    let mut token_map: HashMap<String, i64> = Default::default();
+    let mut cost_map: HashMap<String, f64> = Default::default();
     for s in &sessions {
         *token_map.entry(s.model.clone()).or_insert(0) += s.total_tokens;
         let cost = matrix.estimate(std::slice::from_ref(s)).total_usd;
         *cost_map.entry(s.model.clone()).or_insert(0.0) += cost;
     }
-
     let mut stats: Vec<ModelStat> = token_map
         .into_iter()
         .map(|(model, tokens)| ModelStat {
@@ -209,43 +298,50 @@ pub fn get_by_model() -> CommandResult<Vec<ModelStat>> {
         })
         .collect();
     stats.sort_by(|a, b| b.tokens.cmp(&a.tokens));
-
     CommandResult::ok_with_warnings(stats, warnings)
 }
 
 #[tauri::command]
-pub fn get_by_date() -> CommandResult<Vec<DayStat>> {
+pub fn get_by_date(agent: String) -> CommandResult<Vec<DayStat>> {
     use chrono::{Datelike, Duration, Utc};
-
-    let source = match CodexSource::new() {
-        Some(s) => s,
-        None => return CommandResult::err("未检测到 ~/.codex 目录"),
-    };
-
-    let (threads, warnings) = match source.threads() {
-        Ok(r) => r,
-        Err(e) => return CommandResult::err(format!("读取 threads 失败: {e}")),
-    };
-
     let cutoff = Utc::now() - Duration::days(30);
 
-    // token 按日期聚合
-    let mut token_map: std::collections::BTreeMap<String, i64> = Default::default();
-    for t in &threads {
-        if t.updated_at < cutoff { continue; }
-        let date = format!(
-            "{:04}-{:02}-{:02}",
-            t.updated_at.year(), t.updated_at.month(), t.updated_at.day()
-        );
-        *token_map.entry(date).or_insert(0) += t.tokens_used;
+    if agent == "codex" {
+        let source = match CodexSource::new() {
+            Some(s) => s,
+            None => return CommandResult::err("未检测到 ~/.codex 目录"),
+        };
+        let (threads, warnings) = match source.threads() {
+            Ok(r) => r,
+            Err(e) => return CommandResult::err(format!("读取 threads 失败: {e}")),
+        };
+        let mut map: std::collections::BTreeMap<String, i64> = Default::default();
+        for t in &threads {
+            if t.updated_at < cutoff {
+                continue;
+            }
+            let date = format!(
+                "{:04}-{:02}-{:02}",
+                t.updated_at.year(),
+                t.updated_at.month(),
+                t.updated_at.day()
+            );
+            *map.entry(date).or_insert(0) += t.tokens_used;
+        }
+        let stats: Vec<DayStat> = map
+            .into_iter()
+            .map(|(date, tokens)| DayStat { date, tokens })
+            .collect();
+        return CommandResult::ok_with_warnings(stats, warnings);
     }
 
-    let stats: Vec<DayStat> = token_map
-        .into_iter()
-        .map(|(date, tokens)| DayStat { date, tokens })
-        .collect();
+    if agent == "claude-code" {
+        // Claude Code 目前无精确 updated_at，暂返回空列表
+        // TODO: V1.1 在 SessionRecord 中增加 updated_at 字段后实现
+        return CommandResult::ok(vec![]);
+    }
 
-    CommandResult::ok_with_warnings(stats, warnings)
+    CommandResult::err(format!("未知 Agent: {agent}"))
 }
 
 #[tauri::command]
