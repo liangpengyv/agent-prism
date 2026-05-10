@@ -134,6 +134,7 @@ mod tests {
             reasoning_output_tokens: 0,
             total_tokens: input + output,
             source: "codex".into(),
+            created_at: chrono::Utc::now(),
         }
     }
 

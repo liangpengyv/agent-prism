@@ -114,6 +114,7 @@ fn parse_session_file(path: &Path) -> anyhow::Result<(Option<SessionRecord>, Vec
         reasoning_output_tokens: tc.get("reasoning_output_tokens").and_then(|v| v.as_i64()).unwrap_or(0),
         total_tokens: tc.get("total_tokens").and_then(|v| v.as_i64()).unwrap_or(0),
         source: "codex".to_string(),
+        created_at: chrono::Utc::now(),
     });
 
     Ok((record, warnings))

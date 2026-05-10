@@ -20,13 +20,20 @@ impl AgentSource for ClaudeCodeSource {
     fn name(&self) -> &str { "claude-code" }
 
     fn discover(&self) -> anyhow::Result<Vec<PathBuf>> {
-        let pattern = self.base_dir
-            .join("projects")
-            .join("**")
-            .join("*.jsonl")
-            .to_string_lossy()
-            .to_string();
-        let files: Vec<PathBuf> = glob(&pattern)?.filter_map(|e| e.ok()).collect();
+        let base = self.base_dir.join("projects").to_string_lossy().to_string();
+        // 使用两个 glob pattern 分别匹配：
+        // 1. projects/<encoded_path>/*.jsonl  （普通会话）
+        // 2. projects/<encoded_path>/<session>/subagents/*.jsonl  （子代理会话）
+        let patterns = [
+            format!("{base}/*/*.jsonl"),
+            format!("{base}/*/*/subagents/*.jsonl"),
+        ];
+        let mut files = Vec::new();
+        for pattern in &patterns {
+            for entry in glob(pattern)?.filter_map(|e| e.ok()) {
+                files.push(entry);
+            }
+        }
         Ok(files)
     }
 
@@ -107,6 +114,7 @@ fn parse_session_file(path: &std::path::Path) -> anyhow::Result<(Option<SessionR
         .unwrap_or_default();
 
     let mut cwd = String::new();
+    let mut created_at: Option<String> = None;
 
     let mut model = String::new();
     let mut input_tokens: i64 = 0;
@@ -127,11 +135,14 @@ fn parse_session_file(path: &std::path::Path) -> anyhow::Result<(Option<SessionR
             Err(e) => { warnings.push(format!("JSON 解析失败: {e}")); continue; }
         };
 
-        // 提取第一条 user 消息的 cwd 字段作为项目路径
+        // 提取第一条 user 消息的 cwd 和 timestamp
         if cwd.is_empty() && v.get("type").and_then(|t| t.as_str()) == Some("user") {
             if let Some(c) = v.get("cwd").and_then(|s| s.as_str()) {
                 // 取路径最后一段作为项目名
                 cwd = c.rsplit('/').next().unwrap_or(c).to_string();
+            }
+            if let Some(ts) = v.get("timestamp").and_then(|s| s.as_str()) {
+                created_at = Some(ts.to_string());
             }
         }
 
@@ -162,6 +173,12 @@ fn parse_session_file(path: &std::path::Path) -> anyhow::Result<(Option<SessionR
         return Ok((None, warnings));
     }
 
+    use chrono::{DateTime, Utc};
+    let created_at_parsed = created_at
+        .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+        .map(|dt| dt.with_timezone(&Utc))
+        .unwrap_or_else(Utc::now);
+
     let total_tokens = input_tokens + cached_input_tokens + output_tokens;
     let record = SessionRecord {
         session_id,
@@ -174,6 +191,7 @@ fn parse_session_file(path: &std::path::Path) -> anyhow::Result<(Option<SessionR
         reasoning_output_tokens: 0,
         total_tokens,
         source: "claude-code".to_string(),
+        created_at: created_at_parsed,
     };
 
     Ok((Some(record), warnings))

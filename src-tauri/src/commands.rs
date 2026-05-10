@@ -336,9 +336,33 @@ pub fn get_by_date(agent: String) -> CommandResult<Vec<DayStat>> {
     }
 
     if agent == "claude-code" {
-        // Claude Code 目前无精确 updated_at，暂返回空列表
-        // TODO: V1.1 在 SessionRecord 中增加 updated_at 字段后实现
-        return CommandResult::ok(vec![]);
+        use chrono::Datelike;
+        let source = match ClaudeCodeSource::new() {
+            Some(s) => s,
+            None => return CommandResult::err("未检测到 ~/.claude 目录"),
+        };
+        let (sessions, warnings) = match source.sessions() {
+            Ok(r) => r,
+            Err(e) => return CommandResult::err(format!("读取 sessions 失败: {e}")),
+        };
+        let mut map: std::collections::BTreeMap<String, i64> = Default::default();
+        for s in &sessions {
+            if s.created_at < cutoff {
+                continue;
+            }
+            let date = format!(
+                "{:04}-{:02}-{:02}",
+                s.created_at.year(),
+                s.created_at.month(),
+                s.created_at.day()
+            );
+            *map.entry(date).or_insert(0) += s.total_tokens;
+        }
+        let stats: Vec<DayStat> = map
+            .into_iter()
+            .map(|(date, tokens)| DayStat { date, tokens })
+            .collect();
+        return CommandResult::ok_with_warnings(stats, warnings);
     }
 
     CommandResult::err(format!("未知 Agent: {agent}"))

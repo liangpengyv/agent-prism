@@ -30,6 +30,7 @@ pub struct SessionRecord {
     pub reasoning_output_tokens: i64,
     pub total_tokens: i64,
     pub source: String,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize)]
