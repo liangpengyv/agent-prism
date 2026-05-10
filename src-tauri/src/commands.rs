@@ -9,14 +9,14 @@ use indexmap::IndexMap;
 use serde::Serialize;
 use std::collections::HashMap;
 
-fn load_matrix() -> BillingMatrix {
+fn load_matrix(agent: &str) -> BillingMatrix {
     use crate::store::AppStore;
     if let Ok(store) = AppStore::new() {
-        if let Ok(Some(prices)) = store.get_prices() {
+        if let Ok(Some(prices)) = store.get_prices(agent) {
             return BillingMatrix::with_prices(prices);
         }
     }
-    BillingMatrix::new()
+    BillingMatrix::new_for_agent(agent)
 }
 
 #[derive(Serialize, Clone)]
@@ -75,7 +75,7 @@ pub fn get_summary() -> CommandResult<SummaryData> {
         warnings.push(w.clone());
     }
 
-    let matrix = load_matrix();
+    let matrix = load_matrix("codex");
     let cost = matrix.estimate(&sessions);
 
     let top_project = {
@@ -144,7 +144,7 @@ pub fn get_by_project() -> CommandResult<Vec<ProjectStat>> {
     };
     warnings.append(&mut s_warns);
 
-    let matrix = load_matrix();
+    let matrix = load_matrix("codex");
 
     // 按项目聚合 token
     let mut token_map: HashMap<String, i64> = Default::default();
@@ -189,7 +189,7 @@ pub fn get_by_model() -> CommandResult<Vec<ModelStat>> {
         Err(e) => return CommandResult::err(format!("读取 sessions 失败: {e}")),
     };
 
-    let matrix = load_matrix();
+    let matrix = load_matrix("codex");
 
     let mut token_map: HashMap<String, i64> = Default::default();
     let mut cost_map: HashMap<String, f64> = Default::default();
@@ -249,10 +249,10 @@ pub fn get_by_date() -> CommandResult<Vec<DayStat>> {
 }
 
 #[tauri::command]
-pub fn get_budget() -> CommandResult<Option<i64>> {
+pub fn get_budget(agent: String) -> CommandResult<Option<i64>> {
     use crate::store::AppStore;
     match AppStore::new() {
-        Ok(store) => match store.get_budget_tokens() {
+        Ok(store) => match store.get_budget_tokens(&agent) {
             Ok(v) => CommandResult::ok(v),
             Err(e) => CommandResult::err(format!("读取预算失败: {e}")),
         },
@@ -261,10 +261,10 @@ pub fn get_budget() -> CommandResult<Option<i64>> {
 }
 
 #[tauri::command]
-pub fn set_budget(tokens: i64) -> CommandResult<String> {
+pub fn set_budget(agent: String, tokens: i64) -> CommandResult<String> {
     use crate::store::AppStore;
     match AppStore::new() {
-        Ok(store) => match store.set_budget_tokens(tokens) {
+        Ok(store) => match store.set_budget_tokens(&agent, tokens) {
             Ok(_) => CommandResult::ok("预算已保存".to_string()),
             Err(e) => CommandResult::err(format!("保存预算失败: {e}")),
         },
@@ -273,12 +273,12 @@ pub fn set_budget(tokens: i64) -> CommandResult<String> {
 }
 
 #[tauri::command]
-pub fn get_prices() -> CommandResult<IndexMap<String, ModelPrice>> {
+pub fn get_prices(agent: String) -> CommandResult<IndexMap<String, ModelPrice>> {
     use crate::store::AppStore;
     match AppStore::new() {
-        Ok(store) => match store.get_prices() {
+        Ok(store) => match store.get_prices(&agent) {
             Ok(Some(prices)) => CommandResult::ok(prices),
-            Ok(None) => CommandResult::ok(BillingMatrix::default_prices_codex()),
+            Ok(None) => CommandResult::ok(BillingMatrix::new_for_agent(&agent).prices),
             Err(e) => CommandResult::err(format!("读取价格表失败: {e}")),
         },
         Err(e) => CommandResult::err(format!("初始化 store 失败: {e}")),
@@ -286,10 +286,10 @@ pub fn get_prices() -> CommandResult<IndexMap<String, ModelPrice>> {
 }
 
 #[tauri::command]
-pub fn set_prices(prices: IndexMap<String, ModelPrice>) -> CommandResult<String> {
+pub fn set_prices(agent: String, prices: IndexMap<String, ModelPrice>) -> CommandResult<String> {
     use crate::store::AppStore;
     match AppStore::new() {
-        Ok(store) => match store.set_prices(&prices) {
+        Ok(store) => match store.set_prices(&agent, &prices) {
             Ok(_) => CommandResult::ok("价格表已保存".to_string()),
             Err(e) => CommandResult::err(format!("保存价格表失败: {e}")),
         },
@@ -298,12 +298,36 @@ pub fn set_prices(prices: IndexMap<String, ModelPrice>) -> CommandResult<String>
 }
 
 #[tauri::command]
-pub fn reset_prices() -> CommandResult<IndexMap<String, ModelPrice>> {
+pub fn reset_prices(agent: String) -> CommandResult<IndexMap<String, ModelPrice>> {
     use crate::store::AppStore;
     match AppStore::new() {
-        Ok(store) => match store.delete_prices() {
-            Ok(_) => CommandResult::ok(BillingMatrix::default_prices_codex()),
+        Ok(store) => match store.delete_prices(&agent) {
+            Ok(_) => CommandResult::ok(BillingMatrix::new_for_agent(&agent).prices),
             Err(e) => CommandResult::err(format!("重置价格表失败: {e}")),
+        },
+        Err(e) => CommandResult::err(format!("初始化 store 失败: {e}")),
+    }
+}
+
+#[tauri::command]
+pub fn get_last_selected_agent() -> CommandResult<Option<String>> {
+    use crate::store::AppStore;
+    match AppStore::new() {
+        Ok(store) => match store.get_last_selected_agent() {
+            Ok(v) => CommandResult::ok(v),
+            Err(e) => CommandResult::err(format!("读取 agent 失败: {e}")),
+        },
+        Err(e) => CommandResult::err(format!("初始化 store 失败: {e}")),
+    }
+}
+
+#[tauri::command]
+pub fn set_last_selected_agent(agent: String) -> CommandResult<String> {
+    use crate::store::AppStore;
+    match AppStore::new() {
+        Ok(store) => match store.set_last_selected_agent(&agent) {
+            Ok(_) => CommandResult::ok("已保存".to_string()),
+            Err(e) => CommandResult::err(format!("保存 agent 失败: {e}")),
         },
         Err(e) => CommandResult::err(format!("初始化 store 失败: {e}")),
     }
