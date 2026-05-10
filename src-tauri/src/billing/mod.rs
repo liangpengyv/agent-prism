@@ -57,9 +57,9 @@ impl BillingMatrix {
     pub fn default_prices_claude_code() -> IndexMap<String, ModelPrice> {
         let mut m = IndexMap::new();
         m.insert("claude-opus-4-7".into(), ModelPrice {
-            input_per_1m: 15.0,
-            cached_input_per_1m: 1.5,
-            output_per_1m: 75.0,
+            input_per_1m: 5.0,
+            cached_input_per_1m: 0.5,
+            output_per_1m: 25.0,
         });
         m.insert("claude-sonnet-4-6".into(), ModelPrice {
             input_per_1m: 3.0,
@@ -67,9 +67,9 @@ impl BillingMatrix {
             output_per_1m: 15.0,
         });
         m.insert("claude-haiku-4-5".into(), ModelPrice {
-            input_per_1m: 0.8,
-            cached_input_per_1m: 0.08,
-            output_per_1m: 4.0,
+            input_per_1m: 1.0,
+            cached_input_per_1m: 0.1,
+            output_per_1m: 5.0,
         });
         m
     }
@@ -142,17 +142,17 @@ mod tests {
         let prices = BillingMatrix::default_prices_claude_code();
         assert_eq!(prices.len(), 3);
         let opus = prices.get("claude-opus-4-7").expect("claude-opus-4-7 必须存在");
-        assert!((opus.input_per_1m - 15.0).abs() < 0.001);
-        assert!((opus.cached_input_per_1m - 1.5).abs() < 0.001);
-        assert!((opus.output_per_1m - 75.0).abs() < 0.001);
+        assert!((opus.input_per_1m - 5.0).abs() < 0.001);
+        assert!((opus.cached_input_per_1m - 0.5).abs() < 0.001);
+        assert!((opus.output_per_1m - 25.0).abs() < 0.001);
         let sonnet = prices.get("claude-sonnet-4-6").expect("claude-sonnet-4-6 必须存在");
         assert!((sonnet.input_per_1m - 3.0).abs() < 0.001);
         assert!((sonnet.cached_input_per_1m - 0.3).abs() < 0.001);
         assert!((sonnet.output_per_1m - 15.0).abs() < 0.001);
         let haiku = prices.get("claude-haiku-4-5").expect("claude-haiku-4-5 必须存在");
-        assert!((haiku.input_per_1m - 0.8).abs() < 0.001);
-        assert!((haiku.cached_input_per_1m - 0.08).abs() < 0.001);
-        assert!((haiku.output_per_1m - 4.0).abs() < 0.001);
+        assert!((haiku.input_per_1m - 1.0).abs() < 0.001);
+        assert!((haiku.cached_input_per_1m - 0.1).abs() < 0.001);
+        assert!((haiku.output_per_1m - 5.0).abs() < 0.001);
     }
 
     #[test]
