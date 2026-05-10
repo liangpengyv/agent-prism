@@ -62,13 +62,18 @@ impl AgentSource for ClaudeCodeSource {
 /// - "anthropic/claude-4.6-sonnet-20260217" → "claude-sonnet-4-6"
 /// - "claude-sonnet-4-6" → "claude-sonnet-4-6"
 /// - "claude-sonnet-4-6-bh" → "claude-sonnet-4-6-bh"
-fn normalize_model_name(raw: &str) -> String {
+fn normalize_model_name(raw: &str) -> Option<String> {
+    // 跳过内部占位符（如 <synthetic>）
+    if raw.starts_with('<') {
+        return None;
+    }
+
     // 去除 provider 前缀
     let name = raw.strip_prefix("anthropic/").unwrap_or(raw);
 
     // 如果已经是短格式（不含日期），直接返回
     if !name.contains('-') || name.split('-').count() < 4 {
-        return name.to_string();
+        return Some(name.to_string());
     }
 
     // 尝试解析 "claude-X.Y-model-YYYYMMDD" 格式
@@ -85,12 +90,12 @@ fn normalize_model_name(raw: &str) -> String {
             } else {
                 String::new()
             };
-            return format!("claude-{}-{}{}", model_type, version, suffix);
+            return Some(format!("claude-{}-{}{}", model_type, version, suffix));
         }
     }
 
     // 无法解析，返回原名
-    name.to_string()
+    Some(name.to_string())
 }
 
 fn parse_session_file(path: &std::path::Path) -> anyhow::Result<(Option<SessionRecord>, Vec<String>)> {
@@ -143,9 +148,11 @@ fn parse_session_file(path: &std::path::Path) -> anyhow::Result<(Option<SessionR
                 output_tokens += out;
                 has_usage = true;
 
-                // 取最后一条 assistant 消息的模型
+                // 取最后一条非 synthetic assistant 消息的模型
                 if let Some(m) = v.pointer("/message/model").and_then(|v| v.as_str()) {
-                    model = normalize_model_name(m);
+                    if let Some(normalized) = normalize_model_name(m) {
+                        model = normalized;
+                    }
                 }
             }
         }
@@ -188,12 +195,13 @@ mod tests {
 
     #[test]
     fn test_normalize_model_name() {
-        assert_eq!(normalize_model_name("anthropic/claude-4.6-sonnet-20260217"), "claude-sonnet-4-6");
-        assert_eq!(normalize_model_name("claude-4.6-sonnet-20260217"), "claude-sonnet-4-6");
-        assert_eq!(normalize_model_name("claude-sonnet-4-6"), "claude-sonnet-4-6");
-        assert_eq!(normalize_model_name("claude-sonnet-4-6-bh"), "claude-sonnet-4-6-bh");
-        assert_eq!(normalize_model_name("claude-4.5-haiku-20260217"), "claude-haiku-4-5");
-        assert_eq!(normalize_model_name("glm-5.1"), "glm-5.1");
+        assert_eq!(normalize_model_name("anthropic/claude-4.6-sonnet-20260217"), Some("claude-sonnet-4-6".to_string()));
+        assert_eq!(normalize_model_name("claude-4.6-sonnet-20260217"), Some("claude-sonnet-4-6".to_string()));
+        assert_eq!(normalize_model_name("claude-sonnet-4-6"), Some("claude-sonnet-4-6".to_string()));
+        assert_eq!(normalize_model_name("claude-sonnet-4-6-bh"), Some("claude-sonnet-4-6-bh".to_string()));
+        assert_eq!(normalize_model_name("claude-4.5-haiku-20260217"), Some("claude-haiku-4-5".to_string()));
+        assert_eq!(normalize_model_name("glm-5.1"), Some("glm-5.1".to_string()));
+        assert_eq!(normalize_model_name("<synthetic>"), None);
     }
 
     #[test]
