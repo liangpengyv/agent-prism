@@ -3,10 +3,15 @@
 import { onMounted } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useStats } from '../composables/useStats'
+import { useAgentSwitch } from '../composables/useAgentSwitch'
 
 const { summary, warnings, error, loading, loadSummary } = useStats()
+const { currentAgent, init: initAgent } = useAgentSwitch()
 
-onMounted(() => loadSummary())
+onMounted(async () => {
+  await initAgent()
+  await loadSummary(currentAgent.value)
+})
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'

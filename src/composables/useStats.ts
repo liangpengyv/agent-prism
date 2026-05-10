@@ -45,11 +45,11 @@ export function useStats() {
   const error = ref<string | null>(null)
   const loading = ref(false)
 
-  async function loadSummary() {
+  async function loadSummary(agent: string) {
     loading.value = true
     error.value = null
     try {
-      const result = await invoke<CommandResult<SummaryData>>('get_summary')
+      const result = await invoke<CommandResult<SummaryData>>('get_summary', { agent })
       if (result.error) {
         error.value = result.error
       } else {
@@ -80,9 +80,9 @@ export function useStats() {
     }
   }
 
-  async function refresh() {
+  async function refresh(agent: string) {
     await invoke('refresh')
-    await loadSummary()
+    await loadSummary(agent)
     await loadThreads()
   }
 

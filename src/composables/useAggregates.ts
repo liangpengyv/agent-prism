@@ -26,14 +26,14 @@ export function useAggregates() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function loadAll() {
+  async function loadAll(agent: string) {
     loading.value = true
     error.value = null
     try {
       const [pRes, mRes, dRes] = await Promise.all([
-        invoke<CommandResult<ProjectStat[]>>('get_by_project'),
-        invoke<CommandResult<ModelStat[]>>('get_by_model'),
-        invoke<CommandResult<DayStat[]>>('get_by_date'),
+        invoke<CommandResult<ProjectStat[]>>('get_by_project', { agent }),
+        invoke<CommandResult<ModelStat[]>>('get_by_model', { agent }),
+        invoke<CommandResult<DayStat[]>>('get_by_date', { agent }),
       ])
       if (pRes.error) error.value = pRes.error
       else byProject.value = pRes.data ?? []

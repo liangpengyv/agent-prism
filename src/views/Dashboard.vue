@@ -4,30 +4,40 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useStats, useDataUpdatedListener } from '../composables/useStats'
 import { useAggregates } from '../composables/useAggregates'
+import { useAgentSwitch } from '../composables/useAgentSwitch'
 import BudgetRing from '../components/BudgetRing.vue'
 import ProjectList from '../components/ProjectList.vue'
 import ModelBreakdown from '../components/ModelBreakdown.vue'
 import DayChart from '../components/DayChart.vue'
+import AgentSwitcher from '../components/AgentSwitcher.vue'
 import type { CommandResult } from '../composables/useStats'
+import type { AgentId } from '../composables/useAgentSwitch'
 
 defineEmits<{ openSettings: [] }>()
 
 const { summary, error, loading, loadSummary } = useStats()
 const { byProject, byModel, byDate, loadAll } = useAggregates()
+const { currentAgent, init: initAgent, switchAgent, AGENTS } = useAgentSwitch()
 const activeTab = ref<'project' | 'model' | 'date'>('project')
 const budgetTokens = ref(10_000_000)
 
-async function loadBudget() {
-  const res = await invoke<CommandResult<number | null>>('get_budget')
+async function loadBudget(agent: string) {
+  const res = await invoke<CommandResult<number | null>>('get_budget', { agent })
   if (res.data != null) budgetTokens.value = res.data
 }
 
 async function reload() {
-  await Promise.all([loadSummary(), loadAll()])
+  await Promise.all([loadSummary(currentAgent.value), loadAll(currentAgent.value), loadBudget(currentAgent.value)])
+}
+
+async function handleAgentChange(agent: AgentId) {
+  await switchAgent(agent)
+  await reload()
 }
 
 onMounted(async () => {
-  await Promise.all([reload(), loadBudget()])
+  await initAgent()
+  await reload()
 })
 
 const stopListen = useDataUpdatedListener(() => reload())
@@ -43,7 +53,11 @@ function formatTokens(n: number): string {
 <template>
   <div class="dashboard">
     <header class="header">
-      <span class="logo">AgentPrism</span>
+      <AgentSwitcher
+        :currentAgent="currentAgent"
+        :agents="AGENTS"
+        @change="handleAgentChange"
+      />
       <div class="header-actions">
         <button class="action-btn" @click="reload" :disabled="loading">
           {{ loading ? '刷新中…' : '刷新' }}
@@ -107,7 +121,6 @@ function formatTokens(n: number): string {
 <style scoped>
 .dashboard { display: flex; flex-direction: column; height: 100vh; font-family: -apple-system, sans-serif; color: #333; overflow: hidden; }
 .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; border-bottom: 1px solid #e0e0e0; flex-shrink: 0; }
-.logo { font-size: 14px; font-weight: 500; letter-spacing: 0.08em; }
 .header-actions { display: flex; gap: 8px; }
 .action-btn { background: #f0f0f0; border: 1px solid #ccc; border-radius: 5px; color: #333; font-size: 12px; padding: 4px 10px; cursor: pointer; }
 .action-btn:hover { background: #e0e0e0; }
