@@ -101,15 +101,7 @@ fn parse_session_file(path: &std::path::Path) -> anyhow::Result<(Option<SessionR
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    // 从 encoded_path（父目录名）取最后一段作为 display_name
-    let cwd = path.parent()
-        .and_then(|p| p.file_name())
-        .map(|n| {
-            let encoded = n.to_string_lossy();
-            // 取最后一个 '-' 后的片段作为项目名
-            encoded.rsplit('-').next().unwrap_or(&encoded).to_string()
-        })
-        .unwrap_or_default();
+    let mut cwd = String::new();
 
     let mut model = String::new();
     let mut input_tokens: i64 = 0;
@@ -129,6 +121,14 @@ fn parse_session_file(path: &std::path::Path) -> anyhow::Result<(Option<SessionR
             Ok(v) => v,
             Err(e) => { warnings.push(format!("JSON 解析失败: {e}")); continue; }
         };
+
+        // 提取第一条 user 消息的 cwd 字段作为项目路径
+        if cwd.is_empty() && v.get("type").and_then(|t| t.as_str()) == Some("user") {
+            if let Some(c) = v.get("cwd").and_then(|s| s.as_str()) {
+                // 取路径最后一段作为项目名
+                cwd = c.rsplit('/').next().unwrap_or(c).to_string();
+            }
+        }
 
         if v.get("type").and_then(|t| t.as_str()) == Some("assistant") {
             if let Some(usage) = v.pointer("/message/usage") {

@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_cost_calculation() {
-        let matrix = BillingMatrix::new();
+        let matrix = BillingMatrix::new_for_agent("codex");
         // gpt-5.4-mini: input=0.75, cached=0.075, output=4.5 per 1M
         // 1M uncached input + 0 cached + 1M output = 0.75 + 0 + 4.5 = 5.25
         let sessions = vec![make_session("gpt-5.4-mini", 1_000_000, 0, 1_000_000)];
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_unknown_model_costs_zero() {
-        let matrix = BillingMatrix::new();
+        let matrix = BillingMatrix::new_for_agent("codex");
         let sessions = vec![make_session("unknown-model-xyz", 1_000_000, 0, 1_000_000)];
         let estimate = matrix.estimate(&sessions);
         // 未知模型现在用 fallback 均价估算，不再是 0
@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn test_cached_input_cheaper() {
-        let matrix = BillingMatrix::new();
+        let matrix = BillingMatrix::new_for_agent("codex");
         let sessions_cached = vec![make_session("gpt-5.4-mini", 1_000_000, 1_000_000, 0)];
         let sessions_uncached = vec![make_session("gpt-5.4-mini", 1_000_000, 0, 0)];
         let cost_cached = matrix.estimate(&sessions_cached).total_usd;
