@@ -28,7 +28,7 @@ pub struct BillingMatrix {
 }
 
 impl BillingMatrix {
-    pub fn default_prices() -> IndexMap<String, ModelPrice> {
+    pub fn default_prices_codex() -> IndexMap<String, ModelPrice> {
         let mut m = IndexMap::new();
         // GPT-5 系列（价格来源：OpenAI API Pricing https://openai.com/api/pricing/）
         m.insert("gpt-5.5".into(), ModelPrice {
@@ -54,8 +54,40 @@ impl BillingMatrix {
         m
     }
 
+    pub fn default_prices_claude_code() -> IndexMap<String, ModelPrice> {
+        let mut m = IndexMap::new();
+        m.insert("claude-opus-4-7".into(), ModelPrice {
+            input_per_1m: 15.0,
+            cached_input_per_1m: 1.5,
+            output_per_1m: 75.0,
+        });
+        m.insert("claude-sonnet-4-6".into(), ModelPrice {
+            input_per_1m: 3.0,
+            cached_input_per_1m: 0.3,
+            output_per_1m: 15.0,
+        });
+        m.insert("claude-haiku-4-5".into(), ModelPrice {
+            input_per_1m: 0.8,
+            cached_input_per_1m: 0.08,
+            output_per_1m: 4.0,
+        });
+        m
+    }
+
+    pub fn default_prices() -> IndexMap<String, ModelPrice> {
+        Self::default_prices_codex()
+    }
+
     pub fn new() -> Self {
-        Self { prices: Self::default_prices() }
+        Self { prices: Self::default_prices_codex() }
+    }
+
+    pub fn new_for_agent(agent: &str) -> Self {
+        let prices = match agent {
+            "claude-code" => Self::default_prices_claude_code(),
+            _ => Self::default_prices_codex(),
+        };
+        Self { prices }
     }
 
     pub fn with_prices(prices: IndexMap<String, ModelPrice>) -> Self {
@@ -111,6 +143,37 @@ mod tests {
             total_tokens: input + output,
             source: "codex".into(),
         }
+    }
+
+    #[test]
+    fn test_default_prices_claude_code() {
+        let prices = BillingMatrix::default_prices_claude_code();
+        assert_eq!(prices.len(), 3);
+        let opus = prices.get("claude-opus-4-7").expect("claude-opus-4-7 必须存在");
+        assert!((opus.input_per_1m - 15.0).abs() < 0.001);
+        assert!((opus.cached_input_per_1m - 1.5).abs() < 0.001);
+        assert!((opus.output_per_1m - 75.0).abs() < 0.001);
+        let sonnet = prices.get("claude-sonnet-4-6").expect("claude-sonnet-4-6 必须存在");
+        assert!((sonnet.input_per_1m - 3.0).abs() < 0.001);
+        assert!((sonnet.cached_input_per_1m - 0.3).abs() < 0.001);
+        assert!((sonnet.output_per_1m - 15.0).abs() < 0.001);
+        let haiku = prices.get("claude-haiku-4-5").expect("claude-haiku-4-5 必须存在");
+        assert!((haiku.input_per_1m - 0.8).abs() < 0.001);
+        assert!((haiku.cached_input_per_1m - 0.08).abs() < 0.001);
+        assert!((haiku.output_per_1m - 4.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_new_for_agent() {
+        let matrix_codex = BillingMatrix::new_for_agent("codex");
+        assert!(matrix_codex.prices.contains_key("gpt-5.5"), "codex 价格表应包含 gpt-5.5");
+        assert!(!matrix_codex.prices.contains_key("claude-opus-4-7"), "codex 价格表不应包含 claude-opus-4-7");
+        let matrix_claude = BillingMatrix::new_for_agent("claude-code");
+        assert!(matrix_claude.prices.contains_key("claude-opus-4-7"), "claude-code 价格表应包含 claude-opus-4-7");
+        assert!(!matrix_claude.prices.contains_key("gpt-5.5"), "claude-code 价格表不应包含 gpt-5.5");
+        // unknown agent 回退到 codex 价格表
+        let matrix_unknown = BillingMatrix::new_for_agent("unknown");
+        assert!(matrix_unknown.prices.contains_key("gpt-5.5"));
     }
 
     #[test]

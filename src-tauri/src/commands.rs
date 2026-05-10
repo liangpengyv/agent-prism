@@ -278,7 +278,7 @@ pub fn get_prices() -> CommandResult<IndexMap<String, ModelPrice>> {
     match AppStore::new() {
         Ok(store) => match store.get_prices() {
             Ok(Some(prices)) => CommandResult::ok(prices),
-            Ok(None) => CommandResult::ok(BillingMatrix::default_prices()),
+            Ok(None) => CommandResult::ok(BillingMatrix::default_prices_codex()),
             Err(e) => CommandResult::err(format!("读取价格表失败: {e}")),
         },
         Err(e) => CommandResult::err(format!("初始化 store 失败: {e}")),
@@ -302,7 +302,7 @@ pub fn reset_prices() -> CommandResult<IndexMap<String, ModelPrice>> {
     use crate::store::AppStore;
     match AppStore::new() {
         Ok(store) => match store.delete_prices() {
-            Ok(_) => CommandResult::ok(BillingMatrix::default_prices()),
+            Ok(_) => CommandResult::ok(BillingMatrix::default_prices_codex()),
             Err(e) => CommandResult::err(format!("重置价格表失败: {e}")),
         },
         Err(e) => CommandResult::err(format!("初始化 store 失败: {e}")),
