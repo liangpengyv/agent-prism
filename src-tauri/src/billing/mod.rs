@@ -74,14 +74,6 @@ impl BillingMatrix {
         m
     }
 
-    pub fn default_prices() -> IndexMap<String, ModelPrice> {
-        Self::default_prices_codex()
-    }
-
-    pub fn new() -> Self {
-        Self { prices: Self::default_prices_codex() }
-    }
-
     pub fn new_for_agent(agent: &str) -> Self {
         let prices = match agent {
             "claude-code" => Self::default_prices_claude_code(),
