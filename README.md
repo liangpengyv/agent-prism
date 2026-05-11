@@ -1,6 +1,6 @@
 # AgentPrism
 
-本地 AI Agent Token 消耗监控工具，读取 [Codex](https://github.com/openai/codex) 的本地数据，统计 Token 消耗与估算费用。
+本地 AI Agent Token 消耗监控工具，读取 [Claude Code](https://claude.ai/code) 和 [Codex](https://github.com/openai/codex) 的本地数据，统计 Token 消耗与估算费用。
 
 ## 功能
 
@@ -30,7 +30,12 @@ brew upgrade --cask agent-prism
 
 ## 数据来源
 
-AgentPrism 读取 `~/.codex/sessions/**/*.jsonl` 和 SQLite 数据库中的本地记录，所有数据处理均在本机完成，不上传任何数据。
+| Agent | 本地数据路径 |
+|-------|-------------|
+| Claude Code | `~/.claude/projects/**/*.jsonl` |
+| Codex | `~/.codex/sessions/**/*.jsonl` 及 SQLite 数据库 |
+
+所有数据处理均在本机完成，不上传任何数据。
 
 ## 开发
 
