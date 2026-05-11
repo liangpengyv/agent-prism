@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import { useStats, useDataUpdatedListener } from '../composables/useStats'
 import { useAggregates } from '../composables/useAggregates'
 import { AGENTS } from '../composables/useAgentSwitch'
@@ -64,6 +65,7 @@ function formatTokens(n: number): string {
         <button class="action-btn" @click="reload" :disabled="loading">
           {{ loading ? '刷新中…' : '刷新' }}
         </button>
+        <button class="action-btn feedback-btn" @click="openUrl('https://github.com/liangpengyv/agent-prism/issues')">反馈</button>
         <button class="action-btn" @click="$emit('openSettings')">设置</button>
       </div>
     </header>
@@ -134,6 +136,7 @@ function formatTokens(n: number): string {
 .action-btn { background: #f0f0f0; border: 1px solid #ccc; border-radius: 5px; color: #333; font-size: 12px; padding: 4px 10px; cursor: pointer; }
 .action-btn:hover { background: #e0e0e0; }
 .action-btn:disabled { opacity: 0.5; cursor: default; }
+.feedback-btn { color: #0077cc; }
 .overview { display: flex; align-items: center; gap: 20px; padding: 12px 20px; border-bottom: 1px solid #e0e0e0; flex-shrink: 0; }
 .stats-grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; flex: 1; }
 .stat { text-align: center; }
